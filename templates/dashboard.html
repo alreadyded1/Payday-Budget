@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Payday Budget{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">Dashboard</h2>
+
+    {% if current_period %}
+    <div class="row">
+        <div class="col-md-3 col-sm-6">
+            <div class="card stat-card income">
+                <div class="card-body">
+                    <h6 class="text-muted">Current Period Income</h6>
+                    <h3 class="mb-0">${{ "%.2f"|format(current_period.income) }}</h3>
+                    <small class="text-muted">{{ current_period.period_type }}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card stat-card spent">
+                <div class="card-body">
+                    <h6 class="text-muted">Total Spent</h6>
+                    <h3 class="mb-0">${{ "%.2f"|format(total_spent) }}</h3>
+                    <small class="text-muted">{{ current_period.start_date }} to {{ current_period.end_date }}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card stat-card budget">
+                <div class="card-body">
+                    <h6 class="text-muted">Total Budget</h6>
+                    <h3 class="mb-0">${{ "%.2f"|format(total_budget) }}</h3>
+                    <small class="text-muted">Planned spending</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card stat-card remaining">
+                <div class="card-body">
+                    <h6 class="text-muted">Remaining</h6>
+                    <h3 class="mb-0">${{ "%.2f"|format(current_period.income - total_spent) }}</h3>
+                    <small class="text-muted">Available funds</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> No active pay period found.
+        <a href="{{ url_for('pay_periods') }}" class="alert-link">Create one now</a>
+    </div>
+    {% endif %}
+
+    <div class="row mt-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Recent Transactions</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_transactions %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                    <th>Category</th>
+                                    <th class="text-end">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for transaction in recent_transactions %}
+                                <tr>
+                                    <td>{{ transaction.transaction_date }}</td>
+                                    <td>{{ transaction.description }}</td>
+                                    <td>
+                                        <span class="badge" style="background-color: {{ transaction.category.color }}">
+                                            {{ transaction.category.name }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">${{ "%.2f"|format(transaction.amount) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <a href="{{ url_for('transactions') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                    {% else %}
+                    <p class="text-muted">No transactions yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Categories</h5>
+                </div>
+                <div class="card-body">
+                    {% if categories %}
+                    <div class="list-group list-group-flush">
+                        {% for category in categories %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>
+                                <i class="bi bi-circle-fill" style="color: {{ category.color }}"></i>
+                                {{ category.name }}
+                            </span>
+                            {% if category.subcategories %}
+                            <span class="badge bg-secondary">{{ category.subcategories|length }}</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <a href="{{ url_for('categories') }}" class="btn btn-sm btn-outline-primary mt-3">Manage Categories</a>
+                    {% else %}
+                    <p class="text-muted">No categories found.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

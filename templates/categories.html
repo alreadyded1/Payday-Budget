@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Categories - Payday Budget{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8">
+            <h2 class="mb-4">Categories</h2>
+
+            {% if categories %}
+            <div class="row">
+                {% for category in categories %}
+                <div class="col-md-6 mb-3">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center" style="background-color: {{ category.color }}; color: white;">
+                            <h6 class="mb-0">{{ category.name }}</h6>
+                            <form method="POST" action="{{ url_for('delete_category', category_id=category.id) }}" style="display: inline;">
+                                <button type="submit" class="btn btn-sm btn-light" onclick="return confirm('Delete this category and all subcategories?')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                        {% if category.subcategories %}
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush">
+                                {% for sub in category.subcategories %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>
+                                        <i class="bi bi-arrow-return-right"></i> {{ sub.name }}
+                                    </span>
+                                    <form method="POST" action="{{ url_for('delete_category', category_id=sub.id) }}" style="display: inline;">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this subcategory?')">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> No categories found.
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Create Category</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Category Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="parent_id" class="form-label">Parent Category (Optional)</label>
+                            <select class="form-select" id="parent_id" name="parent_id">
+                                <option value="">None (Main Category)</option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="color" class="form-label">Color</label>
+                            <input type="color" class="form-control form-control-color" id="color" name="color" value="#3498db">
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-plus-circle"></i> Create Category
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

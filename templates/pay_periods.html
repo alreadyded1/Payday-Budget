@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Pay Periods - Payday Budget{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8">
+            <h2 class="mb-4">Pay Periods</h2>
+
+            {% if periods %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Start Date</th>
+                            <th>End Date</th>
+                            <th class="text-end">Income</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for period in periods %}
+                        <tr>
+                            <td>
+                                <span class="badge bg-primary">{{ period.period_type }}</span>
+                            </td>
+                            <td>{{ period.start_date }}</td>
+                            <td>{{ period.end_date }}</td>
+                            <td class="text-end">${{ "%.2f"|format(period.income) }}</td>
+                            <td class="text-end">
+                                <form method="POST" action="{{ url_for('delete_pay_period', period_id=period.id) }}" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure? This will delete all associated transactions.')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> No pay periods created yet.
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Create Pay Period</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="period_type" class="form-label">Period Type</label>
+                            <select class="form-select" id="period_type" name="period_type" required>
+                                <option value="Weekly">Weekly</option>
+                                <option value="Bi-Weekly">Bi-Weekly</option>
+                                <option value="Monthly">Monthly</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="start_date" class="form-label">Start Date</label>
+                            <input type="date" class="form-control" id="start_date" name="start_date" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="income" class="form-label">Income</label>
+                            <input type="number" step="0.01" class="form-control" id="income" name="income" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-plus-circle"></i> Create Period
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

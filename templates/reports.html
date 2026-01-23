@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - Payday Budget{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">Reports</h2>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Filter Reports</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-6">
+                    <label for="period" class="form-label">Pay Period</label>
+                    <select class="form-select" id="period" name="period" onchange="this.form.submit()">
+                        <option value="">All Periods</option>
+                        {% for period in pay_periods %}
+                        <option value="{{ period.id }}" {% if selected_period and selected_period == period.id|string %}selected{% endif %}>
+                            {{ period.period_type }} - {{ period.start_date }} to {{ period.end_date }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Spending by Category</h5>
+                </div>
+                <div class="card-body">
+                    {% if spending_by_category %}
+                    <canvas id="categoryChart"></canvas>
+                    <div class="mt-3">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th class="text-end">Amount</th>
+                                    <th class="text-end">%</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% set total = spending_by_category|sum(attribute=2) %}
+                                {% for name, color, amount in spending_by_category %}
+                                <tr>
+                                    <td>
+                                        <i class="bi bi-circle-fill" style="color: {{ color }}"></i>
+                                        {{ name }}
+                                    </td>
+                                    <td class="text-end">${{ "%.2f"|format(amount) }}</td>
+                                    <td class="text-end">{{ "%.1f"|format((amount / total * 100) if total > 0 else 0) }}%</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No spending data available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Monthly Spending Trend</h5>
+                </div>
+                <div class="card-body">
+                    {% if monthly_spending %}
+                    <canvas id="trendChart"></canvas>
+                    {% else %}
+                    <p class="text-muted">No spending data available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Category spending pie chart
+{% if spending_by_category %}
+const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+new Chart(categoryCtx, {
+    type: 'doughnut',
+    data: {
+        labels: [{% for name, color, amount in spending_by_category %}'{{ name }}',{% endfor %}],
+        datasets: [{
+            data: [{% for name, color, amount in spending_by_category %}{{ amount }},{% endfor %}],
+            backgroundColor: [{% for name, color, amount in spending_by_category %}'{{ color }}',{% endfor %}]
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+{% endif %}
+
+// Monthly trend line chart
+{% if monthly_spending %}
+const trendCtx = document.getElementById('trendChart').getContext('2d');
+new Chart(trendCtx, {
+    type: 'line',
+    data: {
+        labels: [{% for year, month, total in monthly_spending %}'{{ "%04d-%02d"|format(year|int, month|int) }}',{% endfor %}],
+        datasets: [{
+            label: 'Monthly Spending',
+            data: [{% for year, month, total in monthly_spending %}{{ total }},{% endfor %}],
+            borderColor: '#3498db',
+            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+            tension: 0.4,
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return '$' + value.toFixed(2);
+                    }
+                }
+            }
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}
