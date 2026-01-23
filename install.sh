@@ -20,8 +20,12 @@ fi
 PYTHON_VERSION=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
 echo "Found Python version: $PYTHON_VERSION"
 
-# Create virtual environment if it doesn't exist
-if [ ! -d "venv" ]; then
+# Create virtual environment if it doesn't exist or is corrupted
+if [ ! -f "venv/bin/activate" ]; then
+    if [ -d "venv" ]; then
+        echo "Removing corrupted virtual environment..."
+        rm -rf venv
+    fi
     echo "Creating virtual environment..."
     python3 -m venv venv
 else
