@@ -88,6 +88,9 @@
             padding: 0;
             min-height: 100vh;
             transition: all 0.3s;
+        }
+
+        #content.has-sidebar {
             margin-left: var(--sidebar-width);
         }
 
@@ -177,7 +180,7 @@
                 margin-left: 0;
             }
 
-            #content {
+            #content.has-sidebar {
                 margin-left: 0;
             }
 
@@ -189,8 +192,8 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    {% if current_user.is_authenticated %}
     <div class="wrapper">
+        {% if current_user.is_authenticated %}
         <!-- Sidebar -->
         <nav id="sidebar">
             <div class="sidebar-header">
@@ -242,8 +245,23 @@
             </div>
         </nav>
 
+        <script>
+            // Sidebar toggle functionality
+            document.addEventListener('DOMContentLoaded', function() {
+                const sidebarCollapse = document.getElementById('sidebarCollapse');
+                if (sidebarCollapse) {
+                    sidebarCollapse.addEventListener('click', function() {
+                        document.getElementById('sidebar').classList.toggle('active');
+                        document.getElementById('content').classList.toggle('active');
+                    });
+                }
+            });
+        </script>
+        {% endif %}
+
         <!-- Page Content -->
-        <div id="content">
+        <div id="content" class="{% if current_user.is_authenticated %}has-sidebar{% endif %}">
+            {% if current_user.is_authenticated %}
             <div class="top-bar d-flex justify-content-between align-items-center">
                 <button type="button" id="sidebarCollapse" class="btn-menu">
                     <i class="bi bi-list"></i>
@@ -255,6 +273,9 @@
             </div>
 
             <div class="main-content">
+            {% else %}
+            <div class="container-fluid py-4">
+            {% endif %}
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
                         {% for category, message in messages %}
@@ -266,40 +287,10 @@
                     {% endif %}
                 {% endwith %}
 
-                {% block body_content %}{% endblock %}
+                {% block content %}{% endblock %}
             </div>
         </div>
     </div>
-
-    <script>
-        // Sidebar toggle functionality
-        document.addEventListener('DOMContentLoaded', function() {
-            const sidebarCollapse = document.getElementById('sidebarCollapse');
-            if (sidebarCollapse) {
-                sidebarCollapse.addEventListener('click', function() {
-                    document.getElementById('sidebar').classList.toggle('active');
-                    document.getElementById('content').classList.toggle('active');
-                });
-            }
-        });
-    </script>
-    {% else %}
-    <!-- Login/Register page layout without sidebar -->
-    <div class="container-fluid py-4">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        {% block body_content %}{% endblock %}
-    </div>
-    {% endif %}
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
