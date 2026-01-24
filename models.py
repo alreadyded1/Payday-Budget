@@ -66,6 +66,7 @@ class Budget(db.Model):
     category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
     pay_period_id = db.Column(db.Integer, db.ForeignKey('pay_period.id'), nullable=True)
     planned_amount = db.Column(db.Float, nullable=False)
+    is_recurring = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     category_rel = db.relationship('Category', backref='budgets')

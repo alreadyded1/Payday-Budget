@@ -1,12 +1,11 @@
 {% extends "base.html" %}
 
 {% block title %}Transactions - Payday Budget{% endblock %}
+{% block page_title %}Transactions{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-8">
-            <h2 class="mb-4">Transactions</h2>
+<div class="row">
+    <div class="col-md-8">
 
             {% if transactions %}
             <div class="table-responsive">
@@ -103,5 +102,4 @@
             </div>
         </div>
     </div>
-</div>
 {% endblock %}

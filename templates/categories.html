@@ -1,12 +1,11 @@
 {% extends "base.html" %}
 
 {% block title %}Categories - Payday Budget{% endblock %}
+{% block page_title %}Categories{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-8">
-            <h2 class="mb-4">Categories</h2>
+<div class="row">
+    <div class="col-md-8">
 
             {% if categories %}
             <div class="row">
@@ -82,5 +81,4 @@
             </div>
         </div>
     </div>
-</div>
 {% endblock %}

@@ -7,95 +7,272 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
+        :root {
+            --sidebar-width: 250px;
+            --sidebar-bg: #2c3e50;
+            --sidebar-hover: #34495e;
+            --sidebar-active: #3498db;
+        }
+
         body {
             background-color: #f8f9fa;
+            overflow-x: hidden;
         }
-        .navbar-brand {
-            font-weight: bold;
+
+        .wrapper {
+            display: flex;
+            width: 100%;
+            align-items: stretch;
         }
+
+        #sidebar {
+            min-width: var(--sidebar-width);
+            max-width: var(--sidebar-width);
+            background: var(--sidebar-bg);
+            color: #fff;
+            transition: all 0.3s;
+            min-height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 999;
+        }
+
+        #sidebar.active {
+            margin-left: calc(-1 * var(--sidebar-width));
+        }
+
+        #sidebar .sidebar-header {
+            padding: 20px;
+            background: #1a252f;
+        }
+
+        #sidebar .sidebar-header h3 {
+            color: #fff;
+            margin: 0;
+            font-size: 1.3rem;
+        }
+
+        #sidebar ul.components {
+            padding: 0;
+        }
+
+        #sidebar ul li {
+            border-bottom: 1px solid #34495e;
+        }
+
+        #sidebar ul li a {
+            padding: 15px 20px;
+            font-size: 1rem;
+            display: block;
+            color: #bdc3c7;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        #sidebar ul li a:hover,
+        #sidebar ul li a.active {
+            color: #fff;
+            background: var(--sidebar-hover);
+            border-left: 4px solid var(--sidebar-active);
+        }
+
+        #sidebar ul li a i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+        }
+
+        #content {
+            width: 100%;
+            padding: 0;
+            min-height: 100vh;
+            transition: all 0.3s;
+            margin-left: var(--sidebar-width);
+        }
+
+        #content.active {
+            margin-left: 0;
+        }
+
+        .top-bar {
+            background: #fff;
+            padding: 15px 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .top-bar .btn-menu {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #2c3e50;
+            cursor: pointer;
+        }
+
+        .main-content {
+            padding: 0 30px 30px 30px;
+        }
+
         .card {
             box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
             margin-bottom: 1.5rem;
+            border: none;
         }
+
         .stat-card {
             border-left: 4px solid;
         }
+
         .stat-card.income {
             border-left-color: #28a745;
         }
+
         .stat-card.spent {
             border-left-color: #dc3545;
         }
+
         .stat-card.budget {
             border-left-color: #007bff;
         }
+
         .stat-card.remaining {
             border-left-color: #ffc107;
+        }
+
+        .user-info {
+            padding: 20px;
+            background: #1a252f;
+            border-top: 1px solid #34495e;
+            margin-top: auto;
+        }
+
+        .user-info .username {
+            color: #bdc3c7;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .user-info .btn-logout {
+            width: 100%;
+            background: #e74c3c;
+            border: none;
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .user-info .btn-logout:hover {
+            background: #c0392b;
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            #sidebar {
+                margin-left: calc(-1 * var(--sidebar-width));
+            }
+
+            #sidebar.active {
+                margin-left: 0;
+            }
+
+            #content {
+                margin-left: 0;
+            }
+
+            #content.active {
+                margin-left: var(--sidebar-width);
+            }
         }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
     {% if current_user.is_authenticated %}
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('dashboard') }}">
-                <i class="bi bi-wallet2"></i> Payday Budget
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('dashboard') }}">
-                            <i class="bi bi-speedometer2"></i> Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('pay_periods') }}">
-                            <i class="bi bi-calendar-range"></i> Pay Periods
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('transactions') }}">
-                            <i class="bi bi-receipt"></i> Transactions
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('categories') }}">
-                            <i class="bi bi-tags"></i> Categories
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('budgets') }}">
-                            <i class="bi bi-piggy-bank"></i> Budgets
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('reports') }}">
-                            <i class="bi bi-graph-up"></i> Reports
-                        </a>
-                    </li>
-                </ul>
-                <ul class="navbar-nav">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="bi bi-person-circle"></i> {{ current_user.username }}
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{{ url_for('logout') }}">
-                                <i class="bi bi-box-arrow-right"></i> Logout
-                            </a></li>
-                        </ul>
-                    </li>
-                </ul>
+    <div class="wrapper">
+        <!-- Sidebar -->
+        <nav id="sidebar">
+            <div class="sidebar-header">
+                <h3>
+                    <i class="bi bi-wallet2"></i> Payday Budget
+                </h3>
+            </div>
+
+            <ul class="components list-unstyled">
+                <li>
+                    <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+                        <i class="bi bi-speedometer2"></i> Dashboard
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('pay_periods') }}" class="{% if request.endpoint == 'pay_periods' %}active{% endif %}">
+                        <i class="bi bi-calendar-range"></i> Pay Periods
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('transactions') }}" class="{% if request.endpoint == 'transactions' %}active{% endif %}">
+                        <i class="bi bi-receipt"></i> Transactions
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('categories') }}" class="{% if request.endpoint == 'categories' %}active{% endif %}">
+                        <i class="bi bi-tags"></i> Categories
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('budgets') }}" class="{% if request.endpoint == 'budgets' %}active{% endif %}">
+                        <i class="bi bi-piggy-bank"></i> Budgets
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('reports') }}" class="{% if request.endpoint == 'reports' %}active{% endif %}">
+                        <i class="bi bi-graph-up"></i> Reports
+                    </a>
+                </li>
+            </ul>
+
+            <div class="user-info">
+                <div class="username">
+                    <i class="bi bi-person-circle"></i> {{ current_user.username }}
+                </div>
+                <a href="{{ url_for('logout') }}" class="btn btn-logout">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                </a>
+            </div>
+        </nav>
+
+        <!-- Page Content -->
+        <div id="content">
+            <div class="top-bar d-flex justify-content-between align-items-center">
+                <button type="button" id="sidebarCollapse" class="btn-menu">
+                    <i class="bi bi-list"></i>
+                </button>
+                <div class="page-title">
+                    <h4 class="mb-0">{% block page_title %}{% endblock %}</h4>
+                </div>
+                <div style="width: 40px;"></div> <!-- Spacer for centering -->
+            </div>
+
+            <div class="main-content">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
             </div>
         </div>
-    </nav>
-    {% endif %}
-
-    <div class="container-fluid py-4">
+    </div>
+    {% else %}
+    <!-- Login/Register page layout without sidebar -->
+    <div class="container-fluid">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -109,9 +286,22 @@
 
         {% block content %}{% endblock %}
     </div>
+    {% endif %}
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        // Sidebar toggle functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebarCollapse = document.getElementById('sidebarCollapse');
+            if (sidebarCollapse) {
+                sidebarCollapse.addEventListener('click', function() {
+                    document.getElementById('sidebar').classList.toggle('active');
+                    document.getElementById('content').classList.toggle('active');
+                });
+            }
+        });
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

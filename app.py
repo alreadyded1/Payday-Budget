@@ -148,6 +148,20 @@ def pay_periods():
         db.session.add(pay_period)
         db.session.commit()
 
+        # Copy recurring budgets to this new pay period
+        recurring_budgets = Budget.query.filter_by(user_id=current_user.id, is_recurring=True).all()
+        for recurring_budget in recurring_budgets:
+            new_budget = Budget(
+                user_id=current_user.id,
+                category_id=recurring_budget.category_id,
+                pay_period_id=pay_period.id,
+                planned_amount=recurring_budget.planned_amount,
+                is_recurring=False
+            )
+            db.session.add(new_budget)
+
+        db.session.commit()
+
         flash('Pay period created successfully!', 'success')
         return redirect(url_for('pay_periods'))
 
@@ -253,12 +267,14 @@ def budgets():
         category_id = request.form.get('category_id')
         pay_period_id = request.form.get('pay_period_id')
         planned_amount = float(request.form.get('planned_amount'))
+        is_recurring = request.form.get('is_recurring') == 'on'
 
         budget = Budget(
             user_id=current_user.id,
             category_id=int(category_id),
             pay_period_id=int(pay_period_id) if pay_period_id else None,
-            planned_amount=planned_amount
+            planned_amount=planned_amount,
+            is_recurring=is_recurring
         )
         db.session.add(budget)
         db.session.commit()
@@ -276,6 +292,15 @@ def budgets():
                          budgets=all_budgets,
                          pay_periods=pay_periods,
                          categories=all_categories)
+
+@app.route('/budgets/<int:budget_id>/delete', methods=['POST'])
+@login_required
+def delete_budget(budget_id):
+    budget = Budget.query.filter_by(id=budget_id, user_id=current_user.id).first_or_404()
+    db.session.delete(budget)
+    db.session.commit()
+    flash('Budget deleted successfully!', 'success')
+    return redirect(url_for('budgets'))
 
 @app.route('/reports')
 @login_required
