@@ -6,100 +6,190 @@
 {% block content %}
 <div class="row">
     <div class="col-md-8">
-
-            {% if transactions %}
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Description</th>
-                            <th>Category</th>
-                            <th>Pay Period</th>
-                            <th class="text-end">Amount</th>
-                            <th class="text-end">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for transaction in transactions %}
-                        <tr>
-                            <td>{{ transaction.transaction_date }}</td>
-                            <td>{{ transaction.description }}</td>
-                            <td>
-                                <span class="badge" style="background-color: {{ transaction.category.color }}">
-                                    {{ transaction.category.name }}
-                                </span>
-                            </td>
-                            <td>
-                                <small class="text-muted">
-                                    {{ transaction.pay_period.start_date }} - {{ transaction.pay_period.end_date }}
-                                </small>
-                            </td>
-                            <td class="text-end">${{ "%.2f"|format(transaction.amount) }}</td>
-                            <td class="text-end">
-                                <form method="POST" action="{{ url_for('delete_transaction', transaction_id=transaction.id) }}" style="display: inline;">
-                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this transaction?')">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <div class="alert alert-info">
-                <i class="bi bi-info-circle"></i> No transactions yet.
-            </div>
-            {% endif %}
+        {% if transactions %}
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Payee</th>
+                        <th>Account</th>
+                        <th>Category</th>
+                        <th>Type</th>
+                        <th class="text-end">Amount</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transaction in transactions %}
+                    <tr>
+                        <td>{{ transaction.transaction_date }}</td>
+                        <td><strong>{{ transaction.payee.name }}</strong></td>
+                        <td>
+                            <small class="text-muted">{{ transaction.account.name }}</small>
+                        </td>
+                        <td>
+                            <span class="badge" style="background-color: {{ transaction.category.color }}">
+                                {{ transaction.category.name }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-{% if transaction.transaction_type == 'Debit' %}danger{% else %}success{% endif %}">
+                                {{ transaction.transaction_type }}
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <strong class="{% if transaction.transaction_type == 'Debit' %}text-danger{% else %}text-success{% endif %}">
+                                {% if transaction.transaction_type == 'Debit' %}-{% else %}+{% endif %}${{ "%.2f"|format(transaction.amount) }}
+                            </strong>
+                        </td>
+                        <td class="text-end">
+                            <form method="POST" action="{{ url_for('delete_transaction', transaction_id=transaction.id) }}" style="display: inline;">
+                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this transaction?')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% if transaction.description %}
+                    <tr class="table-light">
+                        <td colspan="7">
+                            <small class="text-muted"><i class="bi bi-journal-text"></i> {{ transaction.description }}</small>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No transactions yet.
+        </div>
+        {% endif %}
+    </div>
 
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Add Transaction</h5>
-                </div>
-                <div class="card-body">
-                    <form method="POST">
-                        <div class="mb-3">
-                            <label for="pay_period_id" class="form-label">Pay Period</label>
-                            <select class="form-select" id="pay_period_id" name="pay_period_id" required>
-                                <option value="">Select Pay Period</option>
-                                {% for period in pay_periods %}
-                                <option value="{{ period.id }}">
-                                    {{ period.period_type }} - {{ period.start_date }} to {{ period.end_date }}
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Add Transaction</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="transactionForm">
+                    <div class="mb-3">
+                        <label for="transaction_date" class="form-label">Date</label>
+                        <input type="date" class="form-control" id="transaction_date" name="transaction_date" required
+                               value="{{ (now or '')|default('', true) }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="account_id" class="form-label">Account</label>
+                        <select class="form-select" id="account_id" name="account_id" required>
+                            <option value="">Select Account</option>
+                            {% for account in accounts %}
+                            <option value="{{ account.id }}">{{ account.name }} - ${{ "%.2f"|format(account.balance) }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Payee</label>
+                        <div class="input-group">
+                            <select class="form-select" id="payee_id" name="payee_id">
+                                <option value="">Select Existing Payee</option>
+                                {% for payee in payees %}
+                                <option value="{{ payee.id }}" data-category="{{ payee.default_category_id or '' }}">
+                                    {{ payee.name }}
                                 </option>
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="mb-3">
-                            <label for="category_id" class="form-label">Category</label>
-                            <select class="form-select" id="category_id" name="category_id" required>
-                                <option value="">Select Category</option>
-                                {% for category in categories %}
-                                <option value="{{ category.id }}">{{ category.name }}</option>
-                                {% endfor %}
-                            </select>
+                        <small class="text-muted">Or create new:</small>
+                        <input type="text" class="form-control mt-1" id="payee_name" name="payee_name" placeholder="New Payee Name">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="transaction_type" class="form-label">Transaction Type</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="transaction_type" id="type_debit" value="Debit" checked>
+                            <label class="btn btn-outline-danger" for="type_debit">
+                                <i class="bi bi-dash-circle"></i> Debit (Expense)
+                            </label>
+
+                            <input type="radio" class="btn-check" name="transaction_type" id="type_credit" value="Credit">
+                            <label class="btn btn-outline-success" for="type_credit">
+                                <i class="bi bi-plus-circle"></i> Credit (Income)
+                            </label>
                         </div>
-                        <div class="mb-3">
-                            <label for="description" class="form-label">Description</label>
-                            <input type="text" class="form-control" id="description" name="description" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="amount" class="form-label">Amount</label>
-                            <input type="number" step="0.01" class="form-control" id="amount" name="amount" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="transaction_date" class="form-label">Date</label>
-                            <input type="date" class="form-control" id="transaction_date" name="transaction_date" required>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="bi bi-plus-circle"></i> Add Transaction
-                        </button>
-                    </form>
-                </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="category_id" class="form-label">Category</label>
+                        <select class="form-select" id="category_id" name="category_id" required>
+                            <option value="">Select Category</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="amount" class="form-label">Amount</label>
+                        <input type="number" step="0.01" class="form-control" id="amount" name="amount" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" id="description" name="description" rows="2"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-plus-circle"></i> Add Transaction
+                    </button>
+                </form>
             </div>
         </div>
     </div>
+</div>
+
+<script>
+    // Set today's date as default
+    document.addEventListener('DOMContentLoaded', function() {
+        const dateInput = document.getElementById('transaction_date');
+        if (!dateInput.value) {
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.value = today;
+        }
+
+        // Auto-select category when payee is selected
+        const payeeSelect = document.getElementById('payee_id');
+        const categorySelect = document.getElementById('category_id');
+        const payeeNameInput = document.getElementById('payee_name');
+
+        payeeSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const defaultCategory = selectedOption.getAttribute('data-category');
+
+            if (defaultCategory && this.value) {
+                categorySelect.value = defaultCategory;
+                payeeNameInput.value = '';
+                payeeNameInput.disabled = true;
+            } else if (this.value) {
+                payeeNameInput.value = '';
+                payeeNameInput.disabled = true;
+            } else {
+                payeeNameInput.disabled = false;
+            }
+        });
+
+        payeeNameInput.addEventListener('input', function() {
+            if (this.value) {
+                payeeSelect.value = '';
+                payeeSelect.disabled = true;
+            } else {
+                payeeSelect.disabled = false;
+            }
+        });
+    });
+</script>
 {% endblock %}

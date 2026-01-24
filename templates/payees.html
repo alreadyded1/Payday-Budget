@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Payees - Payday Budget{% endblock %}
+{% block page_title %}Payees{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        {% if payees %}
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Your Payees</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Payee Name</th>
+                                <th>Default Category</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payee in payees %}
+                            <tr>
+                                <td><strong>{{ payee.name }}</strong></td>
+                                <td>
+                                    {% if payee.default_category %}
+                                    <span class="badge" style="background-color: {{ payee.default_category.color }}">
+                                        {{ payee.default_category.name }}
+                                    </span>
+                                    {% else %}
+                                    <span class="text-muted">No default</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <form method="POST" action="{{ url_for('delete_payee', payee_id=payee.id) }}" style="display: inline;">
+                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this payee?')">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No payees yet. Create payees to speed up transaction entry.
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Create Payee</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Payee Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="default_category_id" class="form-label">Default Category (Optional)</label>
+                        <select class="form-select" id="default_category_id" name="default_category_id">
+                            <option value="">No default category</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">This category will be pre-selected when creating transactions</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-plus-circle"></i> Create Payee
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="bi bi-info-circle text-primary"></i> About Payees
+                </h6>
+                <p class="card-text small">
+                    Payees help you quickly enter transactions. Create payees for:
+                </p>
+                <ul class="small">
+                    <li>Stores and retailers</li>
+                    <li>Service providers</li>
+                    <li>Employers (for income)</li>
+                    <li>Recurring bills</li>
+                </ul>
+                <p class="card-text small mb-0">
+                    <strong>Tip:</strong> Set default categories for payees you use frequently.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

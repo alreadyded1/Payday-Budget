@@ -50,12 +50,38 @@ class Category(db.Model):
     subcategories = db.relationship('Category', backref=db.backref('parent', remote_side=[id]), lazy=True)
     transactions = db.relationship('Transaction', backref='category', lazy=True)
 
+class Account(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    account_type = db.Column(db.String(20), nullable=False)  # Checking, Savings, Cash
+    balance = db.Column(db.Float, default=0.0)
+    opening_balance = db.Column(db.Float, default=0.0)
+    include_in_budget = db.Column(db.Boolean, default=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    transactions = db.relationship('Transaction', backref='account', lazy=True)
+
+class Payee(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    default_category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    transactions = db.relationship('Transaction', backref='payee', lazy=True)
+    default_category = db.relationship('Category', foreign_keys=[default_category_id])
+
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    pay_period_id = db.Column(db.Integer, db.ForeignKey('pay_period.id'), nullable=False)
+    account_id = db.Column(db.Integer, db.ForeignKey('account.id'), nullable=False)
+    payee_id = db.Column(db.Integer, db.ForeignKey('payee.id'), nullable=False)
+    pay_period_id = db.Column(db.Integer, db.ForeignKey('pay_period.id'), nullable=True)
     category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
-    description = db.Column(db.String(255), nullable=False)
+    transaction_type = db.Column(db.String(10), nullable=False)  # Debit or Credit
+    description = db.Column(db.String(255), nullable=True)
     amount = db.Column(db.Float, nullable=False)
     transaction_date = db.Column(db.Date, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

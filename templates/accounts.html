@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Accounts - Payday Budget{% endblock %}
+{% block page_title %}Accounts{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card stat-card">
+            <div class="card-body">
+                <h6 class="text-muted">Total Checking</h6>
+                <h3 class="mb-0">${{ "%.2f"|format(total_checking) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card">
+            <div class="card-body">
+                <h6 class="text-muted">Total Savings</h6>
+                <h3 class="mb-0">${{ "%.2f"|format(total_savings) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card">
+            <div class="card-body">
+                <h6 class="text-muted">Total Cash</h6>
+                <h3 class="mb-0">${{ "%.2f"|format(total_cash) }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        {% if accounts %}
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Your Accounts</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Account Name</th>
+                                <th>Type</th>
+                                <th class="text-end">Balance</th>
+                                <th>In Budget</th>
+                                <th>Status</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for account in accounts %}
+                            <tr class="{% if not account.is_active %}table-secondary{% endif %}">
+                                <td><strong>{{ account.name }}</strong></td>
+                                <td>
+                                    <span class="badge bg-{% if account.account_type == 'Checking' %}primary{% elif account.account_type == 'Savings' %}success{% else %}info{% endif %}">
+                                        {{ account.account_type }}
+                                    </span>
+                                </td>
+                                <td class="text-end"><strong>${{ "%.2f"|format(account.balance) }}</strong></td>
+                                <td>
+                                    <form method="POST" action="{{ url_for('toggle_account_budget', account_id=account.id) }}" style="display: inline;">
+                                        <button type="submit" class="btn btn-sm btn-{% if account.include_in_budget %}success{% else %}secondary{% endif %}"
+                                                title="{% if account.include_in_budget %}Included in budget{% else %}Not in budget{% endif %}">
+                                            <i class="bi bi-{% if account.include_in_budget %}check-circle-fill{% else %}circle{% endif %}"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                                <td>
+                                    <form method="POST" action="{{ url_for('toggle_account_active', account_id=account.id) }}" style="display: inline;">
+                                        <button type="submit" class="btn btn-sm btn-{% if account.is_active %}success{% else %}warning{% endif %}">
+                                            {% if account.is_active %}Active{% else %}Inactive{% endif %}
+                                        </button>
+                                    </form>
+                                </td>
+                                <td class="text-end">
+                                    <form method="POST" action="{{ url_for('delete_account', account_id=account.id) }}" style="display: inline;">
+                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this account?')">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No accounts yet. Create your first account using the form on the right.
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Create Account</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Account Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="account_type" class="form-label">Account Type</label>
+                        <select class="form-select" id="account_type" name="account_type" required>
+                            <option value="Checking">Checking</option>
+                            <option value="Savings">Savings</option>
+                            <option value="Cash">Cash</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="opening_balance" class="form-label">Opening Balance</label>
+                        <input type="number" step="0.01" class="form-control" id="opening_balance" name="opening_balance" value="0.00">
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="include_in_budget" name="include_in_budget" checked>
+                            <label class="form-check-label" for="include_in_budget">
+                                <strong>Include in budget</strong>
+                                <small class="d-block text-muted">Transactions from this account will count towards budget calculations</small>
+                            </label>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-plus-circle"></i> Create Account
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="bi bi-info-circle text-primary"></i> About Accounts
+                </h6>
+                <p class="card-text small">
+                    Manage multiple accounts to track your finances across different sources.
+                </p>
+                <p class="card-text small mb-0">
+                    <strong>Budget Toggle:</strong> Control which accounts contribute to budget calculations.
+                    For example, you might exclude savings accounts from budget tracking.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

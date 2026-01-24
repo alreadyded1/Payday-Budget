@@ -209,8 +209,8 @@
                     </a>
                 </li>
                 <li>
-                    <a href="{{ url_for('pay_periods') }}" class="{% if request.endpoint == 'pay_periods' %}active{% endif %}">
-                        <i class="bi bi-calendar-range"></i> Pay Periods
+                    <a href="{{ url_for('accounts') }}" class="{% if request.endpoint == 'accounts' %}active{% endif %}">
+                        <i class="bi bi-bank"></i> Accounts
                     </a>
                 </li>
                 <li>
@@ -219,8 +219,18 @@
                     </a>
                 </li>
                 <li>
+                    <a href="{{ url_for('payees') }}" class="{% if request.endpoint == 'payees' %}active{% endif %}">
+                        <i class="bi bi-person-badge"></i> Payees
+                    </a>
+                </li>
+                <li>
                     <a href="{{ url_for('categories') }}" class="{% if request.endpoint == 'categories' %}active{% endif %}">
                         <i class="bi bi-tags"></i> Categories
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('pay_periods') }}" class="{% if request.endpoint == 'pay_periods' %}active{% endif %}">
+                        <i class="bi bi-calendar-range"></i> Pay Periods
                     </a>
                 </li>
                 <li>
