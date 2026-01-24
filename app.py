@@ -17,7 +17,7 @@ login_manager.login_view = 'login'
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 @app.route('/')
 def index():
@@ -435,7 +435,7 @@ def delete_transaction(transaction_id):
     account_id = transaction.account_id
 
     # Reverse account balance change
-    account = Account.query.get(transaction.account_id)
+    account = db.session.get(Account, transaction.account_id)
     if transaction.transaction_type == 'Debit':
         account.balance += transaction.amount
     else:  # Credit
