@@ -298,6 +298,91 @@ def delete_account(account_id):
     flash('Account deleted successfully!', 'success')
     return redirect(url_for('accounts'))
 
+@app.route('/account/<int:account_id>', methods=['GET', 'POST'])
+@login_required
+def account_transactions(account_id):
+    account = Account.query.filter_by(id=account_id, user_id=current_user.id).first_or_404()
+
+    if request.method == 'POST':
+        payee_id = request.form.get('payee_id')
+        new_payee_name = request.form.get('new_payee_name')
+        category_id = request.form.get('category_id')
+        transaction_type = request.form.get('transaction_type')
+        description = request.form.get('description', '')
+        amount = float(request.form.get('amount'))
+        transaction_date = datetime.strptime(request.form.get('transaction_date'), '%Y-%m-%d').date()
+
+        # Create new payee if name provided
+        if new_payee_name and not payee_id:
+            new_payee = Payee(
+                user_id=current_user.id,
+                name=new_payee_name,
+                default_category_id=int(category_id) if category_id else None
+            )
+            db.session.add(new_payee)
+            db.session.flush()
+            payee_id = new_payee.id
+
+        # Find or create pay period for this transaction date
+        pay_period = PayPeriod.query.filter_by(user_id=current_user.id)\
+            .filter(PayPeriod.start_date <= transaction_date)\
+            .filter(PayPeriod.end_date >= transaction_date)\
+            .first()
+
+        transaction = Transaction(
+            user_id=current_user.id,
+            account_id=account_id,
+            payee_id=int(payee_id),
+            pay_period_id=pay_period.id if pay_period else None,
+            category_id=int(category_id),
+            transaction_type=transaction_type,
+            description=description,
+            amount=amount,
+            transaction_date=transaction_date
+        )
+        db.session.add(transaction)
+
+        # Update account balance
+        if transaction_type == 'Debit':
+            account.balance -= amount
+        else:  # Credit
+            account.balance += amount
+
+        db.session.commit()
+
+        flash('Transaction added successfully!', 'success')
+        return redirect(url_for('account_transactions', account_id=account_id))
+
+    # Get all transactions for this account
+    transactions = Transaction.query.filter_by(account_id=account_id)\
+        .order_by(Transaction.transaction_date.desc(), Transaction.id.desc())\
+        .all()
+
+    # Calculate running balance for each transaction
+    running_balance = account.opening_balance
+    transactions_with_balance = []
+
+    # We need to process in chronological order to calculate balance
+    for transaction in reversed(transactions):
+        if transaction.transaction_type == 'Credit':
+            running_balance += transaction.amount
+        else:  # Debit
+            running_balance -= transaction.amount
+
+        # Add running balance to transaction object
+        transaction.running_balance = running_balance
+        transactions_with_balance.insert(0, transaction)
+
+    payees = Payee.query.filter_by(user_id=current_user.id).order_by(Payee.name).all()
+    categories = Category.query.filter_by(user_id=current_user.id).all()
+
+    return render_template('account_transactions.html',
+                         account=account,
+                         transactions=transactions_with_balance,
+                         payees=payees,
+                         categories=categories,
+                         today=date.today().isoformat())
+
 @app.route('/payees', methods=['GET', 'POST'])
 @login_required
 def payees():
@@ -340,76 +425,14 @@ def delete_payee(payee_id):
 @app.route('/transactions', methods=['GET', 'POST'])
 @login_required
 def transactions():
-    if request.method == 'POST':
-        account_id = request.form.get('account_id')
-        payee_id = request.form.get('payee_id')
-        payee_name = request.form.get('payee_name')
-        category_id = request.form.get('category_id')
-        transaction_type = request.form.get('transaction_type')
-        description = request.form.get('description', '')
-        amount = float(request.form.get('amount'))
-        transaction_date = datetime.strptime(request.form.get('transaction_date'), '%Y-%m-%d').date()
-
-        # Create new payee if name provided
-        if payee_name and not payee_id:
-            new_payee = Payee(
-                user_id=current_user.id,
-                name=payee_name,
-                default_category_id=int(category_id) if category_id else None
-            )
-            db.session.add(new_payee)
-            db.session.flush()
-            payee_id = new_payee.id
-
-        # Find or create pay period for this transaction date
-        pay_period = PayPeriod.query.filter_by(user_id=current_user.id)\
-            .filter(PayPeriod.start_date <= transaction_date)\
-            .filter(PayPeriod.end_date >= transaction_date)\
-            .first()
-
-        transaction = Transaction(
-            user_id=current_user.id,
-            account_id=int(account_id),
-            payee_id=int(payee_id),
-            pay_period_id=pay_period.id if pay_period else None,
-            category_id=int(category_id),
-            transaction_type=transaction_type,
-            description=description,
-            amount=amount,
-            transaction_date=transaction_date
-        )
-        db.session.add(transaction)
-
-        # Update account balance
-        account = Account.query.get(int(account_id))
-        if transaction_type == 'Debit':
-            account.balance -= amount
-        else:  # Credit
-            account.balance += amount
-
-        db.session.commit()
-
-        flash('Transaction added successfully!', 'success')
-        return redirect(url_for('transactions'))
-
-    all_transactions = Transaction.query.filter_by(user_id=current_user.id)\
-        .order_by(Transaction.transaction_date.desc())\
-        .all()
-
-    accounts = Account.query.filter_by(user_id=current_user.id, is_active=True).all()
-    payees = Payee.query.filter_by(user_id=current_user.id).order_by(Payee.name).all()
-    all_categories = Category.query.filter_by(user_id=current_user.id).all()
-
-    return render_template('transactions.html',
-                         transactions=all_transactions,
-                         accounts=accounts,
-                         payees=payees,
-                         categories=all_categories)
+    # Redirect to accounts page - transactions are now managed per account
+    return redirect(url_for('accounts'))
 
 @app.route('/transactions/<int:transaction_id>/delete', methods=['POST'])
 @login_required
 def delete_transaction(transaction_id):
     transaction = Transaction.query.filter_by(id=transaction_id, user_id=current_user.id).first_or_404()
+    account_id = transaction.account_id
 
     # Reverse account balance change
     account = Account.query.get(transaction.account_id)
@@ -421,7 +444,7 @@ def delete_transaction(transaction_id):
     db.session.delete(transaction)
     db.session.commit()
     flash('Transaction deleted successfully!', 'success')
-    return redirect(url_for('transactions'))
+    return redirect(url_for('account_transactions', account_id=account_id))
 
 @app.route('/budgets', methods=['GET', 'POST'])
 @login_required

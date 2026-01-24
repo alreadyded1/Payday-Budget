@@ -83,6 +83,51 @@
             text-align: center;
         }
 
+        /* Account dropdown styles */
+        #sidebar ul li.has-dropdown > a {
+            position: relative;
+        }
+
+        #sidebar ul li.has-dropdown > a::after {
+            content: '\f282';
+            font-family: 'bootstrap-icons';
+            position: absolute;
+            right: 20px;
+            transition: transform 0.3s;
+        }
+
+        #sidebar ul li.has-dropdown > a[aria-expanded="true"]::after {
+            transform: rotate(90deg);
+        }
+
+        #sidebar .submenu {
+            list-style: none;
+            padding-left: 0;
+            background: #1a252f;
+        }
+
+        #sidebar .submenu li {
+            border-bottom: 1px solid #2c3e50;
+        }
+
+        #sidebar .submenu li a {
+            padding: 12px 20px 12px 50px;
+            font-size: 0.9rem;
+            color: #95a5a6;
+        }
+
+        #sidebar .submenu li a:hover {
+            background: #243447;
+            color: #fff;
+            border-left: 4px solid #3498db;
+        }
+
+        #sidebar .submenu li a .account-balance {
+            float: right;
+            font-weight: 600;
+            color: #2ecc71;
+        }
+
         #content {
             width: 100%;
             padding: 0;
@@ -208,15 +253,28 @@
                         <i class="bi bi-speedometer2"></i> Dashboard
                     </a>
                 </li>
-                <li>
-                    <a href="{{ url_for('accounts') }}" class="{% if request.endpoint == 'accounts' %}active{% endif %}">
+                <li class="has-dropdown">
+                    <a href="#accountsSubmenu" data-bs-toggle="collapse" aria-expanded="false">
                         <i class="bi bi-bank"></i> Accounts
                     </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('transactions') }}" class="{% if request.endpoint == 'transactions' %}active{% endif %}">
-                        <i class="bi bi-receipt"></i> Transactions
-                    </a>
+                    <ul class="collapse submenu list-unstyled" id="accountsSubmenu">
+                        {% set user_accounts = current_user.accounts.filter_by(is_active=True).order_by('account_type', 'name').all() %}
+                        {% if user_accounts %}
+                            {% for account in user_accounts %}
+                            <li>
+                                <a href="{{ url_for('account_transactions', account_id=account.id) }}">
+                                    {{ account.name }}
+                                    <span class="account-balance">${{ "%.2f"|format(account.balance) }}</span>
+                                </a>
+                            </li>
+                            {% endfor %}
+                        {% endif %}
+                        <li>
+                            <a href="{{ url_for('accounts') }}" style="border-top: 1px solid #34495e; margin-top: 5px; padding-top: 12px;">
+                                <i class="bi bi-plus-circle"></i> Manage Accounts
+                            </a>
+                        </li>
+                    </ul>
                 </li>
                 <li>
                     <a href="{{ url_for('payees') }}" class="{% if request.endpoint == 'payees' %}active{% endif %}">
