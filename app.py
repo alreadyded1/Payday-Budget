@@ -431,7 +431,6 @@ def account_transactions(account_id):
             user_id=current_user.id,
             account_id=account_id,
             payee_id=int(payee_id),
-            pay_period_id=None,  # No longer using pay periods
             category_id=int(category_id),
             transaction_type=transaction_type,
             description=description,
