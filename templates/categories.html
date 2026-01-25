@@ -4,6 +4,30 @@
 {% block page_title %}Categories{% endblock %}
 
 {% block content %}
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-0">Viewing: {{ period_label }}</h5>
+            </div>
+            <div class="btn-group" role="group">
+                <a href="{{ url_for('categories', period='mtd') }}"
+                   class="btn btn-sm {% if current_period == 'mtd' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    Month to Date
+                </a>
+                <a href="{{ url_for('categories', period='ytd') }}"
+                   class="btn btn-sm {% if current_period == 'ytd' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    Year to Date
+                </a>
+                <a href="{{ url_for('categories', period='all') }}"
+                   class="btn btn-sm {% if current_period == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    All Time
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row">
     <div class="col-md-8">
         <div class="card">
@@ -17,44 +41,90 @@
                         <thead>
                             <tr>
                                 <th>Category Name</th>
-                                <th>Subcategories</th>
+                                <th>Type</th>
+                                <th class="text-end">Total ({{ period_label }})</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for category in categories %}
+                            {% for item in categories %}
                             <tr>
                                 <td>
-                                    <strong>{{ category.name }}</strong>
+                                    {% if item.category.parent_id %}
+                                        <i class="bi bi-arrow-return-right text-muted ms-3"></i>
+                                    {% endif %}
+                                    <a href="{{ url_for('category_transactions', category_id=item.category.id, period=current_period) }}"
+                                       class="text-decoration-none fw-semibold">
+                                        {{ item.category.name }}
+                                    </a>
                                 </td>
                                 <td>
-                                    {% if category.subcategories %}
-                                        <ul class="list-unstyled mb-0">
-                                            {% for sub in category.subcategories %}
-                                            <li class="mb-1">
-                                                <i class="bi bi-arrow-return-right text-muted"></i> {{ sub.name }}
-                                                <form method="POST" action="{{ url_for('delete_category', category_id=sub.id) }}"
-                                                      style="display: inline;" onsubmit="return confirm('Delete this subcategory?')">
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger ms-2">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                </form>
-                                            </li>
-                                            {% endfor %}
-                                        </ul>
+                                    {% if item.category.parent_id %}
+                                        <span class="badge bg-secondary">Subcategory</span>
                                     {% else %}
-                                        <span class="text-muted">No subcategories</span>
+                                        <span class="badge bg-primary">Parent</span>
                                     {% endif %}
                                 </td>
+                                <td class="text-end">
+                                    <strong>${{ "%.2f"|format(item.total) }}</strong>
+                                </td>
                                 <td>
-                                    <form method="POST" action="{{ url_for('delete_category', category_id=category.id) }}"
-                                          style="display: inline;" onsubmit="return confirm('Delete this category and all subcategories?')">
+                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#editModal{{ item.category.id }}">
+                                        <i class="bi bi-pencil"></i> Edit
+                                    </button>
+                                    <form method="POST"
+                                          action="{{ url_for('delete_category', category_id=item.category.id) }}"
+                                          style="display: inline;"
+                                          onsubmit="return confirm('Delete this category{% if item.category.subcategories %} and all subcategories{% endif %}?')">
                                         <button type="submit" class="btn btn-sm btn-outline-danger">
                                             <i class="bi bi-trash"></i> Delete
                                         </button>
                                     </form>
                                 </td>
                             </tr>
+
+                            <!-- Edit Modal for this category -->
+                            <div class="modal fade" id="editModal{{ item.category.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Edit Category</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="POST" action="{{ url_for('edit_category', category_id=item.category.id) }}">
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <label for="edit_name{{ item.category.id }}" class="form-label">Category Name</label>
+                                                    <input type="text" class="form-control"
+                                                           id="edit_name{{ item.category.id }}"
+                                                           name="name"
+                                                           value="{{ item.category.name }}" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="edit_parent{{ item.category.id }}" class="form-label">Parent Category</label>
+                                                    <select class="form-select" id="edit_parent{{ item.category.id }}" name="parent_id">
+                                                        <option value="">None (Main Category)</option>
+                                                        {% for parent in parent_categories %}
+                                                            {% if parent.id != item.category.id %}
+                                                            <option value="{{ parent.id }}"
+                                                                    {% if item.category.parent_id == parent.id %}selected{% endif %}>
+                                                                {{ parent.name }}
+                                                            </option>
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -85,8 +155,8 @@
                         <label for="parent_id" class="form-label">Parent Category (Optional)</label>
                         <select class="form-select" id="parent_id" name="parent_id">
                             <option value="">None (Main Category)</option>
-                            {% for category in categories %}
-                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% for parent in parent_categories %}
+                            <option value="{{ parent.id }}">{{ parent.name }}</option>
                             {% endfor %}
                         </select>
                         <div class="form-text">Select a parent to create a subcategory</div>

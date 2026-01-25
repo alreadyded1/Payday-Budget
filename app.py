@@ -216,8 +216,118 @@ def categories():
         flash('Category created successfully!', 'success')
         return redirect(url_for('categories'))
 
-    all_categories = Category.query.filter_by(user_id=current_user.id, parent_id=None).all()
-    return render_template('categories.html', categories=all_categories)
+    # Get time period filter
+    period = request.args.get('period', 'mtd')  # Default to Month to Date
+
+    # Calculate date range based on period
+    today = date.today()
+    if period == 'mtd':
+        start_date = date(today.year, today.month, 1)
+        end_date = today
+        period_label = 'Month to Date'
+    elif period == 'ytd':
+        start_date = date(today.year, 1, 1)
+        end_date = today
+        period_label = 'Year to Date'
+    else:  # all time
+        start_date = None
+        end_date = None
+        period_label = 'All Time'
+
+    # Get all categories (both parent and subcategories) sorted alphabetically
+    all_categories = Category.query.filter_by(user_id=current_user.id).order_by(Category.name).all()
+
+    # Calculate totals for each category
+    categories_with_totals = []
+    for category in all_categories:
+        query = db.session.query(func.sum(Transaction.amount))\
+            .join(Account)\
+            .filter(Transaction.user_id == current_user.id)\
+            .filter(Transaction.category_id == category.id)\
+            .filter(Transaction.transaction_type == 'Debit')\
+            .filter(Account.include_in_budget == True)
+
+        if start_date and end_date:
+            query = query.filter(Transaction.transaction_date >= start_date)\
+                         .filter(Transaction.transaction_date <= end_date)
+
+        total = query.scalar() or 0.0
+
+        categories_with_totals.append({
+            'category': category,
+            'total': total
+        })
+
+    # Get parent categories for the form dropdown
+    parent_categories = Category.query.filter_by(user_id=current_user.id, parent_id=None)\
+                                      .order_by(Category.name).all()
+
+    return render_template('categories.html',
+                         categories=categories_with_totals,
+                         parent_categories=parent_categories,
+                         current_period=period,
+                         period_label=period_label)
+
+@app.route('/categories/<int:category_id>/edit', methods=['POST'])
+@login_required
+def edit_category(category_id):
+    category = Category.query.filter_by(id=category_id, user_id=current_user.id).first_or_404()
+
+    name = request.form.get('name')
+    parent_id = request.form.get('parent_id')
+
+    if name:
+        category.name = name
+        category.parent_id = int(parent_id) if parent_id else None
+        db.session.commit()
+        flash('Category updated successfully!', 'success')
+
+    return redirect(url_for('categories'))
+
+@app.route('/categories/<int:category_id>/transactions')
+@login_required
+def category_transactions(category_id):
+    category = Category.query.filter_by(id=category_id, user_id=current_user.id).first_or_404()
+
+    # Get time period filter
+    period = request.args.get('period', 'mtd')
+
+    # Calculate date range
+    today = date.today()
+    if period == 'mtd':
+        start_date = date(today.year, today.month, 1)
+        end_date = today
+        period_label = 'Month to Date'
+    elif period == 'ytd':
+        start_date = date(today.year, 1, 1)
+        end_date = today
+        period_label = 'Year to Date'
+    else:
+        start_date = None
+        end_date = None
+        period_label = 'All Time'
+
+    # Get transactions for this category
+    query = Transaction.query.join(Account)\
+        .filter(Transaction.user_id == current_user.id)\
+        .filter(Transaction.category_id == category_id)\
+        .filter(Account.include_in_budget == True)
+
+    if start_date and end_date:
+        query = query.filter(Transaction.transaction_date >= start_date)\
+                     .filter(Transaction.transaction_date <= end_date)
+
+    transactions = query.order_by(Transaction.transaction_date.desc()).all()
+
+    # Calculate total
+    total = sum(t.amount for t in transactions if t.transaction_type == 'Debit')
+
+    return render_template('category_transactions.html',
+                         category=category,
+                         transactions=transactions,
+                         total=total,
+                         current_period=period,
+                         period_label=period_label)
 
 @app.route('/categories/<int:category_id>/delete', methods=['POST'])
 @login_required
@@ -405,6 +515,22 @@ def payees():
     all_categories = Category.query.filter_by(user_id=current_user.id).all()
 
     return render_template('payees.html', payees=all_payees, categories=all_categories)
+
+@app.route('/payees/<int:payee_id>/edit', methods=['POST'])
+@login_required
+def edit_payee(payee_id):
+    payee = Payee.query.filter_by(id=payee_id, user_id=current_user.id).first_or_404()
+
+    name = request.form.get('name')
+    default_category_id = request.form.get('default_category_id')
+
+    if name:
+        payee.name = name
+        payee.default_category_id = int(default_category_id) if default_category_id else None
+        db.session.commit()
+        flash('Payee updated successfully!', 'success')
+
+    return redirect(url_for('payees'))
 
 @app.route('/payees/<int:payee_id>/delete', methods=['POST'])
 @login_required
