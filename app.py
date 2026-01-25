@@ -211,8 +211,16 @@ def categories():
         end_date = None
         period_label = 'All Time'
 
-    # Get all categories (both parent and subcategories) sorted alphabetically
-    all_categories = Category.query.filter_by(user_id=current_user.id).order_by(Category.name).all()
+    # Get parent categories sorted alphabetically, then their subcategories
+    parent_categories_sorted = Category.query.filter_by(user_id=current_user.id, parent_id=None).order_by(Category.name).all()
+
+    # Build list with parents followed by their subcategories
+    all_categories = []
+    for parent in parent_categories_sorted:
+        all_categories.append(parent)
+        # Add subcategories for this parent
+        subcategories = Category.query.filter_by(user_id=current_user.id, parent_id=parent.id).all()
+        all_categories.extend(subcategories)
 
     # Calculate totals for each category
     categories_with_totals = []
