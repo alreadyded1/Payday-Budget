@@ -40,88 +40,105 @@
     </div>
 </div>
 
-<div class="row">
-    <!-- Transaction Entry Form -->
-    <div class="col-md-4">
+<!-- Transaction Entry Form -->
+<div class="row mb-4">
+    <div class="col-12">
         <div class="card">
             <div class="card-header bg-primary text-white">
                 <h5 class="mb-0"><i class="bi bi-plus-circle"></i> New Transaction</h5>
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('account_transactions', account_id=account.id) }}">
-                    <div class="mb-3">
-                        <label for="transaction_date" class="form-label">Date</label>
-                        <input type="date" class="form-control" id="transaction_date" name="transaction_date"
-                               value="{{ today }}" required>
-                    </div>
+                    <div class="row g-3">
+                        <!-- Date -->
+                        <div class="col-md-2">
+                            <label for="transaction_date" class="form-label">Date</label>
+                            <input type="date" class="form-control" id="transaction_date" name="transaction_date"
+                                   value="{{ today }}" required>
+                        </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Payee</label>
-                        <select class="form-select" id="payee_id" name="payee_id">
-                            <option value="">Select existing payee...</option>
-                            {% for payee in payees %}
-                            <option value="{{ payee.id }}" data-category="{{ payee.default_category_id or '' }}">
-                                {{ payee.name }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <div class="mt-2">
+                        <!-- Payee -->
+                        <div class="col-md-2">
+                            <label class="form-label">Payee</label>
+                            <select class="form-select" id="payee_id" name="payee_id">
+                                <option value="">Select payee...</option>
+                                {% for payee in payees %}
+                                <option value="{{ payee.id }}" data-category="{{ payee.default_category_id or '' }}">
+                                    {{ payee.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- New Payee -->
+                        <div class="col-md-2">
+                            <label class="form-label">New Payee</label>
                             <input type="text" class="form-control" id="new_payee_name" name="new_payee_name"
-                                   placeholder="Or enter new payee name">
+                                   placeholder="Or enter new...">
+                        </div>
+
+                        <!-- Category -->
+                        <div class="col-md-2">
+                            <label for="category_id" class="form-label">Category</label>
+                            <select class="form-select" id="category_id" name="category_id" required>
+                                <option value="">Select...</option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Type -->
+                        <div class="col-md-2">
+                            <label class="form-label">Type</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="transaction_type" id="type_debit"
+                                       value="Debit" checked>
+                                <label class="btn btn-outline-danger" for="type_debit">
+                                    <i class="bi bi-arrow-down-circle"></i>
+                                </label>
+                                <input type="radio" class="btn-check" name="transaction_type" id="type_credit"
+                                       value="Credit">
+                                <label class="btn btn-outline-success" for="type_credit">
+                                    <i class="bi bi-arrow-up-circle"></i>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Amount -->
+                        <div class="col-md-2">
+                            <label for="amount" class="form-label">Amount</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="amount" name="amount"
+                                       step="0.01" min="0.01" required>
+                            </div>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="col-md-10">
+                            <label for="description" class="form-label">Description (Optional)</label>
+                            <input type="text" class="form-control" id="description" name="description"
+                                   placeholder="Add notes...">
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-check-circle"></i> Add
+                            </button>
                         </div>
                     </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Transaction Type</label>
-                        <div class="btn-group w-100" role="group">
-                            <input type="radio" class="btn-check" name="transaction_type" id="type_debit"
-                                   value="Debit" checked>
-                            <label class="btn btn-outline-danger" for="type_debit">
-                                <i class="bi bi-arrow-down-circle"></i> Debit
-                            </label>
-                            <input type="radio" class="btn-check" name="transaction_type" id="type_credit"
-                                   value="Credit">
-                            <label class="btn btn-outline-success" for="type_credit">
-                                <i class="bi bi-arrow-up-circle"></i> Credit
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="category_id" class="form-label">Category</label>
-                        <select class="form-select" id="category_id" name="category_id" required>
-                            <option value="">Select category...</option>
-                            {% for category in categories %}
-                            <option value="{{ category.id }}">{{ category.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="amount" class="form-label">Amount</label>
-                        <div class="input-group">
-                            <span class="input-group-text">$</span>
-                            <input type="number" class="form-control" id="amount" name="amount"
-                                   step="0.01" min="0.01" required>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="description" class="form-label">Description (Optional)</label>
-                        <textarea class="form-control" id="description" name="description"
-                                  rows="2" placeholder="Add notes..."></textarea>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-check-circle"></i> Add Transaction
-                    </button>
                 </form>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Transaction History -->
-    <div class="col-md-8">
+<!-- Transaction History -->
+<div class="row">
+    <div class="col-12">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="bi bi-list-ul"></i> Transaction History</h5>
