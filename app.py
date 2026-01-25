@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, User, Category, Transaction, Budget, Account, Payee
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from sqlalchemy import func, extract
 import os
 
