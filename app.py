@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, User, Category, Transaction, Budget, Account, Payee
 from datetime import datetime, date, timedelta
-from sqlalchemy import func, extract
+from sqlalchemy import func, extract, case
 import os
 
 app = Flask(__name__)
@@ -123,8 +123,8 @@ def dashboard():
 
     categories = Category.query.filter_by(user_id=current_user.id, parent_id=None).all()
 
-    # Calculate total spent this month from budget-included accounts
-    total_spent = db.session.query(func.sum(Transaction.amount))\
+    # Calculate total spent this month from budget-included accounts (debits - credits)
+    total_debits = db.session.query(func.sum(Transaction.amount))\
         .join(Account)\
         .filter(Transaction.user_id == current_user.id)\
         .filter(Transaction.transaction_date >= month_start)\
@@ -132,6 +132,17 @@ def dashboard():
         .filter(Transaction.transaction_type == 'Debit')\
         .filter(Account.include_in_budget == True)\
         .scalar() or 0
+
+    total_credits = db.session.query(func.sum(Transaction.amount))\
+        .join(Account)\
+        .filter(Transaction.user_id == current_user.id)\
+        .filter(Transaction.transaction_date >= month_start)\
+        .filter(Transaction.transaction_date <= month_end)\
+        .filter(Transaction.transaction_type == 'Credit')\
+        .filter(Account.include_in_budget == True)\
+        .scalar() or 0
+
+    total_spent = total_debits - total_credits
 
     # Get all active budgets and calculate totals
     all_budgets = Budget.query.filter_by(user_id=current_user.id).all()
@@ -147,7 +158,7 @@ def dashboard():
     # Calculate budget progress by category
     budget_progress = []
     for budget in all_budgets:
-        spent = db.session.query(func.sum(Transaction.amount))\
+        debits = db.session.query(func.sum(Transaction.amount))\
             .join(Account)\
             .filter(Transaction.user_id == current_user.id)\
             .filter(Transaction.category_id == budget.category_id)\
@@ -156,6 +167,18 @@ def dashboard():
             .filter(Transaction.transaction_type == 'Debit')\
             .filter(Account.include_in_budget == True)\
             .scalar() or 0
+
+        credits = db.session.query(func.sum(Transaction.amount))\
+            .join(Account)\
+            .filter(Transaction.user_id == current_user.id)\
+            .filter(Transaction.category_id == budget.category_id)\
+            .filter(Transaction.transaction_date >= budget.period_start_date)\
+            .filter(Transaction.transaction_date <= budget.get_period_end_date())\
+            .filter(Transaction.transaction_type == 'Credit')\
+            .filter(Account.include_in_budget == True)\
+            .scalar() or 0
+
+        spent = debits - credits
 
         budget_progress.append({
             'budget': budget,
@@ -225,7 +248,8 @@ def categories():
     # Calculate totals for each category
     categories_with_totals = []
     for category in all_categories:
-        query = db.session.query(func.sum(Transaction.amount))\
+        # Calculate debits
+        debit_query = db.session.query(func.sum(Transaction.amount))\
             .join(Account)\
             .filter(Transaction.user_id == current_user.id)\
             .filter(Transaction.category_id == category.id)\
@@ -233,10 +257,27 @@ def categories():
             .filter(Account.include_in_budget == True)
 
         if start_date and end_date:
-            query = query.filter(Transaction.transaction_date >= start_date)\
+            debit_query = debit_query.filter(Transaction.transaction_date >= start_date)\
                          .filter(Transaction.transaction_date <= end_date)
 
-        total = query.scalar() or 0.0
+        total_debits = debit_query.scalar() or 0.0
+
+        # Calculate credits
+        credit_query = db.session.query(func.sum(Transaction.amount))\
+            .join(Account)\
+            .filter(Transaction.user_id == current_user.id)\
+            .filter(Transaction.category_id == category.id)\
+            .filter(Transaction.transaction_type == 'Credit')\
+            .filter(Account.include_in_budget == True)
+
+        if start_date and end_date:
+            credit_query = credit_query.filter(Transaction.transaction_date >= start_date)\
+                         .filter(Transaction.transaction_date <= end_date)
+
+        total_credits = credit_query.scalar() or 0.0
+
+        # Net total: debits - credits
+        total = total_debits - total_credits
 
         categories_with_totals.append({
             'category': category,
@@ -304,8 +345,10 @@ def category_transactions(category_id):
 
     transactions = query.order_by(Transaction.transaction_date.desc()).all()
 
-    # Calculate total
-    total = sum(t.amount for t in transactions if t.transaction_type == 'Debit')
+    # Calculate total (debits - credits)
+    total_debits = sum(t.amount for t in transactions if t.transaction_type == 'Debit')
+    total_credits = sum(t.amount for t in transactions if t.transaction_type == 'Credit')
+    total = total_debits - total_credits
 
     return render_template('category_transactions.html',
                          category=category,
@@ -594,10 +637,10 @@ def budgets():
             budget.reset_period()
     db.session.commit()
 
-    # Calculate spending for each budget
+    # Calculate spending for each budget (debits - credits)
     budgets_with_progress = []
     for budget in all_budgets:
-        spent = db.session.query(func.sum(Transaction.amount))\
+        debits = db.session.query(func.sum(Transaction.amount))\
             .join(Account)\
             .filter(Transaction.user_id == current_user.id)\
             .filter(Transaction.category_id == budget.category_id)\
@@ -606,6 +649,18 @@ def budgets():
             .filter(Transaction.transaction_type == 'Debit')\
             .filter(Account.include_in_budget == True)\
             .scalar() or 0
+
+        credits = db.session.query(func.sum(Transaction.amount))\
+            .join(Account)\
+            .filter(Transaction.user_id == current_user.id)\
+            .filter(Transaction.category_id == budget.category_id)\
+            .filter(Transaction.transaction_date >= budget.period_start_date)\
+            .filter(Transaction.transaction_date <= budget.get_period_end_date())\
+            .filter(Transaction.transaction_type == 'Credit')\
+            .filter(Account.include_in_budget == True)\
+            .scalar() or 0
+
+        spent = debits - credits
 
         budgets_with_progress.append({
             'budget': budget,
@@ -651,14 +706,17 @@ def reports():
         end_date = None
         period_label = 'All Time'
 
-    # Build spending by category query
+    # Build spending by category query (debits - credits)
     spending_by_category = db.session.query(
         Category.name,
         Category.color,
-        func.sum(Transaction.amount).label('total')
+        func.sum(case(
+            (Transaction.transaction_type == 'Debit', Transaction.amount),
+            (Transaction.transaction_type == 'Credit', -Transaction.amount),
+            else_=0
+        )).label('total')
     ).join(Transaction).join(Account).filter(
         Transaction.user_id == current_user.id,
-        Transaction.transaction_type == 'Debit',
         Account.include_in_budget == True
     )
 
@@ -670,14 +728,17 @@ def reports():
 
     spending_by_category = spending_by_category.group_by(Category.id).all()
 
-    # Monthly spending trend (last 12 months)
+    # Monthly spending trend (last 12 months, debits - credits)
     monthly_spending = db.session.query(
         extract('year', Transaction.transaction_date).label('year'),
         extract('month', Transaction.transaction_date).label('month'),
-        func.sum(Transaction.amount).label('total')
+        func.sum(case(
+            (Transaction.transaction_type == 'Debit', Transaction.amount),
+            (Transaction.transaction_type == 'Credit', -Transaction.amount),
+            else_=0
+        )).label('total')
     ).join(Account).filter(
         Transaction.user_id == current_user.id,
-        Transaction.transaction_type == 'Debit',
         Account.include_in_budget == True
     ).group_by('year', 'month').order_by('year', 'month').limit(12).all()
 
