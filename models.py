@@ -17,7 +17,6 @@ class User(UserMixin, db.Model):
     categories = db.relationship('Category', backref='user', lazy='dynamic')
     payees = db.relationship('Payee', backref='user', lazy='dynamic')
     transactions = db.relationship('Transaction', backref='user', lazy='dynamic')
-    pay_periods = db.relationship('PayPeriod', backref='user', lazy='dynamic')
     budgets = db.relationship('Budget', backref='user', lazy='dynamic')
 
     def set_password(self, password):
@@ -25,27 +24,6 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
-
-class PayPeriod(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    period_type = db.Column(db.String(20), nullable=False)  # Weekly, Bi-Weekly, Monthly
-    start_date = db.Column(db.Date, nullable=False)
-    end_date = db.Column(db.Date, nullable=False)
-    income = db.Column(db.Float, default=0.0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    transactions = db.relationship('Transaction', backref='pay_period', lazy=True, cascade='all, delete-orphan')
-
-    @staticmethod
-    def calculate_end_date(start_date, period_type):
-        if period_type == 'Weekly':
-            return start_date + timedelta(days=6)
-        elif period_type == 'Bi-Weekly':
-            return start_date + timedelta(days=13)
-        elif period_type == 'Monthly':
-            return (start_date + relativedelta(months=1)) - timedelta(days=1)
-        return start_date
 
 class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)

@@ -12,13 +12,19 @@ from models import User, Account, Payee, Category, Transaction, Budget
 
 def backup_database():
     """Create a backup of the current database"""
-    db_path = 'payday_budget.db'
-    if os.path.exists(db_path):
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_path = f'payday_budget_backup_recurrence_{timestamp}.db'
-        shutil.copy2(db_path, backup_path)
-        print(f"✓ Database backed up to {backup_path}")
-        return True
+    # Check both possible locations
+    db_paths = ['instance/payday_budget.db', 'payday_budget.db']
+
+    for db_path in db_paths:
+        if os.path.exists(db_path):
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            backup_dir = os.path.dirname(db_path) or '.'
+            backup_path = os.path.join(backup_dir, f'payday_budget_backup_recurrence_{timestamp}.db')
+            shutil.copy2(db_path, backup_path)
+            print(f"✓ Database backed up to {backup_path}")
+            return True
+
+    print("ℹ No existing database found, creating new one")
     return False
 
 def migrate_schema():
