@@ -64,7 +64,6 @@ class Transaction(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     account_id = db.Column(db.Integer, db.ForeignKey('account.id'), nullable=False)
     payee_id = db.Column(db.Integer, db.ForeignKey('payee.id'), nullable=False)
-    pay_period_id = db.Column(db.Integer, db.ForeignKey('pay_period.id'), nullable=True)
     category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
     transaction_type = db.Column(db.String(10), nullable=False)  # Debit or Credit
     description = db.Column(db.String(255), nullable=True)
