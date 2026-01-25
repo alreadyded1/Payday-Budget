@@ -418,6 +418,15 @@ def account_transactions(account_id):
             db.session.flush()
             payee_id = new_payee.id
 
+        # Validate payee_id and category_id
+        if not payee_id:
+            flash('Please select a payee or enter a new payee name.', 'error')
+            return redirect(url_for('account_transactions', account_id=account_id))
+
+        if not category_id:
+            flash('Please select a category.', 'error')
+            return redirect(url_for('account_transactions', account_id=account_id))
+
         transaction = Transaction(
             user_id=current_user.id,
             account_id=account_id,
