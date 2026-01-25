@@ -9,50 +9,71 @@
         {% if budgets %}
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">Your Budgets</h5>
+                <h5 class="mb-0"><i class="bi bi-piggy-bank"></i> Your Budgets</h5>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-striped">
+                    <table class="table table-hover">
                         <thead>
                             <tr>
                                 <th>Category</th>
-                                <th>Pay Period</th>
-                                <th>Type</th>
-                                <th class="text-end">Planned Amount</th>
-                                <th class="text-end">Actions</th>
+                                <th>Recurrence</th>
+                                <th>Period</th>
+                                <th class="text-end">Planned</th>
+                                <th class="text-end">Spent</th>
+                                <th class="text-end">Remaining</th>
+                                <th>Progress</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for budget in budgets %}
+                            {% for item in budgets %}
                             <tr>
                                 <td>
-                                    <span class="badge" style="background-color: {{ budget.category_rel.color }}">
-                                        {{ budget.category_rel.name }}
+                                    <strong>{{ item.budget.category_rel.name }}</strong>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">
+                                        {% if item.budget.recurrence_type == 'Weekly' %}
+                                            <i class="bi bi-calendar-week"></i> Weekly
+                                        {% elif item.budget.recurrence_type == 'Bi-Weekly' %}
+                                            <i class="bi bi-calendar2-range"></i> Bi-Weekly
+                                        {% else %}
+                                            <i class="bi bi-calendar-month"></i> Monthly
+                                        {% endif %}
                                     </span>
                                 </td>
                                 <td>
-                                    {% if budget.pay_period_id %}
                                     <small class="text-muted">
-                                        Specific Period
+                                        {{ item.budget.period_start_date.strftime('%m/%d') }} - {{ item.budget.get_period_end_date().strftime('%m/%d') }}
                                     </small>
-                                    {% else %}
-                                    <small class="text-muted">N/A</small>
-                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <strong>${{ "%.2f"|format(item.budget.planned_amount) }}</strong>
+                                </td>
+                                <td class="text-end text-danger">
+                                    ${{ "%.2f"|format(item.spent) }}
+                                </td>
+                                <td class="text-end {% if item.remaining >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    ${{ "%.2f"|format(item.remaining) }}
                                 </td>
                                 <td>
-                                    {% if budget.is_recurring %}
-                                    <span class="badge bg-success">
-                                        <i class="bi bi-arrow-repeat"></i> Recurring
-                                    </span>
-                                    {% else %}
-                                    <span class="badge bg-secondary">One-time</span>
-                                    {% endif %}
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar {% if item.percentage > 100 %}bg-danger{% elif item.percentage > 80 %}bg-warning{% else %}bg-success{% endif %}"
+                                             role="progressbar"
+                                             style="width: {{ [item.percentage, 100]|min }}%"
+                                             aria-valuenow="{{ item.percentage }}"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100">
+                                            {{ "%.0f"|format(item.percentage) }}%
+                                        </div>
+                                    </div>
                                 </td>
-                                <td class="text-end"><strong>${{ "%.2f"|format(budget.planned_amount) }}</strong></td>
-                                <td class="text-end">
-                                    <form method="POST" action="{{ url_for('delete_budget', budget_id=budget.id) }}" style="display: inline;">
-                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this budget?')">
+                                <td>
+                                    <form method="POST" action="{{ url_for('delete_budget', budget_id=item.budget.id) }}"
+                                          style="display: inline;"
+                                          onsubmit="return confirm('Delete this budget?')">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
@@ -65,8 +86,11 @@
             </div>
         </div>
         {% else %}
-        <div class="alert alert-info">
-            <i class="bi bi-info-circle"></i> No budgets created yet. Create your first budget using the form on the right.
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+                <p class="text-muted mt-3">No budgets yet. Create your first budget!</p>
+            </div>
         </div>
         {% endif %}
     </div>
@@ -74,14 +98,14 @@
     <div class="col-md-4">
         <div class="card">
             <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Create Budget</h5>
+                <h5 class="mb-0"><i class="bi bi-plus-circle"></i> Create Budget</h5>
             </div>
             <div class="card-body">
                 <form method="POST">
                     <div class="mb-3">
                         <label for="category_id" class="form-label">Category</label>
                         <select class="form-select" id="category_id" name="category_id" required>
-                            <option value="">Select Category</option>
+                            <option value="">Select category...</option>
                             {% for category in categories %}
                             <option value="{{ category.id }}">{{ category.name }}</option>
                             {% endfor %}
@@ -89,28 +113,26 @@
                     </div>
                     <div class="mb-3">
                         <label for="planned_amount" class="form-label">Planned Amount</label>
-                        <input type="number" step="0.01" class="form-control" id="planned_amount" name="planned_amount" required>
-                    </div>
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="is_recurring" name="is_recurring">
-                            <label class="form-check-label" for="is_recurring">
-                                <strong>Make this budget recurring</strong>
-                                <small class="d-block text-muted">Automatically copy to new pay periods</small>
-                            </label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="planned_amount" name="planned_amount"
+                                   step="0.01" min="0.01" required>
                         </div>
                     </div>
-                    <div class="mb-3" id="pay_period_section">
-                        <label for="pay_period_id" class="form-label">Pay Period (Optional)</label>
-                        <select class="form-select" id="pay_period_id" name="pay_period_id">
-                            <option value="">Select Pay Period</option>
-                            {% for period in pay_periods %}
-                            <option value="{{ period.id }}">
-                                {{ period.period_type }} - {{ period.start_date }} to {{ period.end_date }}
-                            </option>
-                            {% endfor %}
+                    <div class="mb-3">
+                        <label for="recurrence_type" class="form-label">Recurrence</label>
+                        <select class="form-select" id="recurrence_type" name="recurrence_type" required>
+                            <option value="Monthly" selected>Monthly</option>
+                            <option value="Bi-Weekly">Bi-Weekly</option>
+                            <option value="Weekly">Weekly</option>
                         </select>
-                        <small class="text-muted">Leave blank for recurring budgets</small>
+                        <div class="form-text">Budget will automatically reset based on this interval</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="period_start_date" class="form-label">Period Start Date</label>
+                        <input type="date" class="form-control" id="period_start_date" name="period_start_date"
+                               value="{{ today }}" required>
+                        <div class="form-text">When does this budget period begin?</div>
                     </div>
                     <button type="submit" class="btn btn-primary w-100">
                         <i class="bi bi-plus-circle"></i> Create Budget
@@ -122,31 +144,21 @@
         <div class="card mt-3">
             <div class="card-body">
                 <h6 class="card-title">
-                    <i class="bi bi-info-circle text-primary"></i> About Recurring Budgets
+                    <i class="bi bi-info-circle text-primary"></i> About Budgets
                 </h6>
                 <p class="card-text small">
-                    Recurring budgets are automatically copied to new pay periods when you create them.
-                    This is perfect for fixed expenses like rent, utilities, or monthly subscriptions.
+                    Budgets help you track spending by category. Choose a recurrence interval:
                 </p>
+                <ul class="small">
+                    <li><strong>Weekly:</strong> Budget resets every 7 days</li>
+                    <li><strong>Bi-Weekly:</strong> Budget resets every 14 days</li>
+                    <li><strong>Monthly:</strong> Budget resets each month</li>
+                </ul>
                 <p class="card-text small mb-0">
-                    <strong>Example:</strong> Set a $500 recurring budget for "Groceries" and it will
-                    appear in every new pay period you create.
+                    <strong>Tip:</strong> Budgets automatically reset when their period ends!
                 </p>
             </div>
         </div>
     </div>
 </div>
-
-<script>
-    // Show/hide pay period selector based on recurring checkbox
-    document.getElementById('is_recurring').addEventListener('change', function() {
-        const payPeriodSection = document.getElementById('pay_period_id');
-        if (this.checked) {
-            payPeriodSection.value = '';
-            payPeriodSection.disabled = true;
-        } else {
-            payPeriodSection.disabled = false;
-        }
-    });
-</script>
 {% endblock %}

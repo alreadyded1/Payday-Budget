@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User, PayPeriod, Category, Transaction, Budget, Account, Payee
+from models import db, User, Category, Transaction, Budget, Account, Payee
 from datetime import datetime, date
 from sqlalchemy import func, extract
 import os
@@ -108,10 +108,13 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    current_period = PayPeriod.query.filter_by(user_id=current_user.id)\
-        .filter(PayPeriod.start_date <= date.today())\
-        .filter(PayPeriod.end_date >= date.today())\
-        .first()
+    # Get current month's date range
+    today = date.today()
+    month_start = date(today.year, today.month, 1)
+    if today.month == 12:
+        month_end = date(today.year + 1, 1, 1) - timedelta(days=1)
+    else:
+        month_end = date(today.year, today.month + 1, 1) - timedelta(days=1)
 
     recent_transactions = Transaction.query.filter_by(user_id=current_user.id)\
         .order_by(Transaction.transaction_date.desc())\
@@ -120,81 +123,55 @@ def dashboard():
 
     categories = Category.query.filter_by(user_id=current_user.id, parent_id=None).all()
 
-    total_spent = 0
-    total_budget = 0
+    # Calculate total spent this month from budget-included accounts
+    total_spent = db.session.query(func.sum(Transaction.amount))\
+        .join(Account)\
+        .filter(Transaction.user_id == current_user.id)\
+        .filter(Transaction.transaction_date >= month_start)\
+        .filter(Transaction.transaction_date <= month_end)\
+        .filter(Transaction.transaction_type == 'Debit')\
+        .filter(Account.include_in_budget == True)\
+        .scalar() or 0
 
-    if current_period:
-        # Only include transactions from accounts with include_in_budget=True
-        total_spent = db.session.query(func.sum(Transaction.amount))\
+    # Get all active budgets and calculate totals
+    all_budgets = Budget.query.filter_by(user_id=current_user.id).all()
+
+    # Auto-reset budgets that need it
+    for budget in all_budgets:
+        if budget.needs_reset():
+            budget.reset_period()
+    db.session.commit()
+
+    total_budget = sum(budget.planned_amount for budget in all_budgets)
+
+    # Calculate budget progress by category
+    budget_progress = []
+    for budget in all_budgets:
+        spent = db.session.query(func.sum(Transaction.amount))\
             .join(Account)\
             .filter(Transaction.user_id == current_user.id)\
-            .filter(Transaction.pay_period_id == current_period.id)\
+            .filter(Transaction.category_id == budget.category_id)\
+            .filter(Transaction.transaction_date >= budget.period_start_date)\
+            .filter(Transaction.transaction_date <= budget.get_period_end_date())\
             .filter(Transaction.transaction_type == 'Debit')\
             .filter(Account.include_in_budget == True)\
             .scalar() or 0
 
-        total_budget = db.session.query(func.sum(Budget.planned_amount))\
-            .filter_by(user_id=current_user.id, pay_period_id=current_period.id)\
-            .scalar() or 0
+        budget_progress.append({
+            'budget': budget,
+            'spent': spent,
+            'remaining': budget.planned_amount - spent,
+            'percentage': (spent / budget.planned_amount * 100) if budget.planned_amount > 0 else 0
+        })
 
     return render_template('dashboard.html',
-                         current_period=current_period,
+                         month_start=month_start,
+                         month_end=month_end,
                          recent_transactions=recent_transactions,
                          categories=categories,
                          total_spent=total_spent,
-                         total_budget=total_budget)
-
-@app.route('/pay-periods', methods=['GET', 'POST'])
-@login_required
-def pay_periods():
-    if request.method == 'POST':
-        period_type = request.form.get('period_type')
-        start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%d').date()
-        income = float(request.form.get('income', 0))
-
-        end_date = PayPeriod.calculate_end_date(start_date, period_type)
-
-        pay_period = PayPeriod(
-            user_id=current_user.id,
-            period_type=period_type,
-            start_date=start_date,
-            end_date=end_date,
-            income=income
-        )
-        db.session.add(pay_period)
-        db.session.commit()
-
-        # Copy recurring budgets to this new pay period
-        recurring_budgets = Budget.query.filter_by(user_id=current_user.id, is_recurring=True).all()
-        for recurring_budget in recurring_budgets:
-            new_budget = Budget(
-                user_id=current_user.id,
-                category_id=recurring_budget.category_id,
-                pay_period_id=pay_period.id,
-                planned_amount=recurring_budget.planned_amount,
-                is_recurring=False
-            )
-            db.session.add(new_budget)
-
-        db.session.commit()
-
-        flash('Pay period created successfully!', 'success')
-        return redirect(url_for('pay_periods'))
-
-    periods = PayPeriod.query.filter_by(user_id=current_user.id)\
-        .order_by(PayPeriod.start_date.desc())\
-        .all()
-
-    return render_template('pay_periods.html', periods=periods)
-
-@app.route('/pay-periods/<int:period_id>/delete', methods=['POST'])
-@login_required
-def delete_pay_period(period_id):
-    period = PayPeriod.query.filter_by(id=period_id, user_id=current_user.id).first_or_404()
-    db.session.delete(period)
-    db.session.commit()
-    flash('Pay period deleted successfully!', 'success')
-    return redirect(url_for('pay_periods'))
+                         total_budget=total_budget,
+                         budget_progress=budget_progress)
 
 @app.route('/categories', methods=['GET', 'POST'])
 @login_required
@@ -433,17 +410,11 @@ def account_transactions(account_id):
             db.session.flush()
             payee_id = new_payee.id
 
-        # Find or create pay period for this transaction date
-        pay_period = PayPeriod.query.filter_by(user_id=current_user.id)\
-            .filter(PayPeriod.start_date <= transaction_date)\
-            .filter(PayPeriod.end_date >= transaction_date)\
-            .first()
-
         transaction = Transaction(
             user_id=current_user.id,
             account_id=account_id,
             payee_id=int(payee_id),
-            pay_period_id=pay_period.id if pay_period else None,
+            pay_period_id=None,  # No longer using pay periods
             category_id=int(category_id),
             transaction_type=transaction_type,
             description=description,
@@ -577,16 +548,22 @@ def delete_transaction(transaction_id):
 def budgets():
     if request.method == 'POST':
         category_id = request.form.get('category_id')
-        pay_period_id = request.form.get('pay_period_id')
         planned_amount = float(request.form.get('planned_amount'))
-        is_recurring = request.form.get('is_recurring') == 'on'
+        recurrence_type = request.form.get('recurrence_type', 'Monthly')
+        start_date_str = request.form.get('period_start_date')
+
+        # Use provided start date or default to today
+        if start_date_str:
+            period_start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        else:
+            period_start_date = date.today()
 
         budget = Budget(
             user_id=current_user.id,
             category_id=int(category_id),
-            pay_period_id=int(pay_period_id) if pay_period_id else None,
             planned_amount=planned_amount,
-            is_recurring=is_recurring
+            recurrence_type=recurrence_type,
+            period_start_date=period_start_date
         )
         db.session.add(budget)
         db.session.commit()
@@ -594,16 +571,39 @@ def budgets():
         flash('Budget created successfully!', 'success')
         return redirect(url_for('budgets'))
 
+    # Get all budgets and auto-reset any that need it
     all_budgets = Budget.query.filter_by(user_id=current_user.id).all()
-    pay_periods = PayPeriod.query.filter_by(user_id=current_user.id)\
-        .order_by(PayPeriod.start_date.desc())\
-        .all()
+    for budget in all_budgets:
+        if budget.needs_reset():
+            budget.reset_period()
+    db.session.commit()
+
+    # Calculate spending for each budget
+    budgets_with_progress = []
+    for budget in all_budgets:
+        spent = db.session.query(func.sum(Transaction.amount))\
+            .join(Account)\
+            .filter(Transaction.user_id == current_user.id)\
+            .filter(Transaction.category_id == budget.category_id)\
+            .filter(Transaction.transaction_date >= budget.period_start_date)\
+            .filter(Transaction.transaction_date <= budget.get_period_end_date())\
+            .filter(Transaction.transaction_type == 'Debit')\
+            .filter(Account.include_in_budget == True)\
+            .scalar() or 0
+
+        budgets_with_progress.append({
+            'budget': budget,
+            'spent': spent,
+            'remaining': budget.planned_amount - spent,
+            'percentage': (spent / budget.planned_amount * 100) if budget.planned_amount > 0 else 0
+        })
+
     all_categories = Category.query.filter_by(user_id=current_user.id).all()
 
     return render_template('budgets.html',
-                         budgets=all_budgets,
-                         pay_periods=pay_periods,
-                         categories=all_categories)
+                         budgets=budgets_with_progress,
+                         categories=all_categories,
+                         today=date.today().isoformat())
 
 @app.route('/budgets/<int:budget_id>/delete', methods=['POST'])
 @login_required
@@ -617,13 +617,25 @@ def delete_budget(budget_id):
 @app.route('/reports')
 @login_required
 def reports():
-    period_filter = request.args.get('period', None)
+    # Get period filter (mtd, ytd, all)
+    period = request.args.get('period', 'mtd')
 
-    query = Transaction.query.filter_by(user_id=current_user.id)
+    # Calculate date range based on period
+    today = date.today()
+    if period == 'mtd':
+        start_date = date(today.year, today.month, 1)
+        end_date = today
+        period_label = 'Month to Date'
+    elif period == 'ytd':
+        start_date = date(today.year, 1, 1)
+        end_date = today
+        period_label = 'Year to Date'
+    else:  # all time
+        start_date = None
+        end_date = None
+        period_label = 'All Time'
 
-    if period_filter:
-        query = query.filter_by(pay_period_id=int(period_filter))
-
+    # Build spending by category query
     spending_by_category = db.session.query(
         Category.name,
         Category.color,
@@ -634,11 +646,15 @@ def reports():
         Account.include_in_budget == True
     )
 
-    if period_filter:
-        spending_by_category = spending_by_category.filter(Transaction.pay_period_id == int(period_filter))
+    if start_date and end_date:
+        spending_by_category = spending_by_category.filter(
+            Transaction.transaction_date >= start_date,
+            Transaction.transaction_date <= end_date
+        )
 
     spending_by_category = spending_by_category.group_by(Category.id).all()
 
+    # Monthly spending trend (last 12 months)
     monthly_spending = db.session.query(
         extract('year', Transaction.transaction_date).label('year'),
         extract('month', Transaction.transaction_date).label('month'),
@@ -647,37 +663,13 @@ def reports():
         Transaction.user_id == current_user.id,
         Transaction.transaction_type == 'Debit',
         Account.include_in_budget == True
-    ).group_by('year', 'month').order_by('year', 'month').all()
-
-    pay_periods = PayPeriod.query.filter_by(user_id=current_user.id)\
-        .order_by(PayPeriod.start_date.desc())\
-        .all()
+    ).group_by('year', 'month').order_by('year', 'month').limit(12).all()
 
     return render_template('reports.html',
                          spending_by_category=spending_by_category,
                          monthly_spending=monthly_spending,
-                         pay_periods=pay_periods,
-                         selected_period=period_filter)
-
-@app.route('/api/category-spending/<int:period_id>')
-@login_required
-def api_category_spending(period_id):
-    spending = db.session.query(
-        Category.name,
-        Category.color,
-        func.sum(Transaction.amount).label('total')
-    ).join(Transaction).join(Account).filter(
-        Transaction.user_id == current_user.id,
-        Transaction.pay_period_id == period_id,
-        Transaction.transaction_type == 'Debit',
-        Account.include_in_budget == True
-    ).group_by(Category.id).all()
-
-    return jsonify([{
-        'name': s[0],
-        'color': s[1],
-        'total': float(s[2])
-    } for s in spending])
+                         current_period=period,
+                         period_label=period_label)
 
 if __name__ == '__main__':
     with app.app_context():

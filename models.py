@@ -98,9 +98,38 @@ class Budget(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
-    pay_period_id = db.Column(db.Integer, db.ForeignKey('pay_period.id'), nullable=True)
     planned_amount = db.Column(db.Float, nullable=False)
-    is_recurring = db.Column(db.Boolean, default=False)
+    recurrence_type = db.Column(db.String(20), nullable=False, default='Monthly')  # Weekly, Bi-Weekly, Monthly
+    period_start_date = db.Column(db.Date, nullable=False)  # When the current period started
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     category_rel = db.relationship('Category', backref='budgets')
+
+    def get_period_end_date(self):
+        """Calculate when the current budget period ends"""
+        if self.recurrence_type == 'Weekly':
+            return self.period_start_date + timedelta(days=6)
+        elif self.recurrence_type == 'Bi-Weekly':
+            return self.period_start_date + timedelta(days=13)
+        elif self.recurrence_type == 'Monthly':
+            return (self.period_start_date + relativedelta(months=1)) - timedelta(days=1)
+        return self.period_start_date
+
+    def is_period_active(self):
+        """Check if we're currently in this budget's period"""
+        today = datetime.now().date()
+        return self.period_start_date <= today <= self.get_period_end_date()
+
+    def needs_reset(self):
+        """Check if the budget period has ended and needs to reset"""
+        today = datetime.now().date()
+        return today > self.get_period_end_date()
+
+    def reset_period(self):
+        """Reset the budget period to the next period"""
+        if self.recurrence_type == 'Weekly':
+            self.period_start_date += timedelta(days=7)
+        elif self.recurrence_type == 'Bi-Weekly':
+            self.period_start_date += timedelta(days=14)
+        elif self.recurrence_type == 'Monthly':
+            self.period_start_date += relativedelta(months=1)
