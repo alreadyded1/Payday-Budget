@@ -69,6 +69,7 @@ class Transaction(db.Model):
     description = db.Column(db.String(255), nullable=True)
     amount = db.Column(db.Float, nullable=False)
     transaction_date = db.Column(db.Date, nullable=False)
+    reconciled = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Budget(db.Model):

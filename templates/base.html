@@ -292,6 +292,11 @@
                     </a>
                 </li>
                 <li>
+                    <a href="{{ url_for('transfer') }}" class="{% if request.endpoint == 'transfer' %}active{% endif %}">
+                        <i class="bi bi-arrow-left-right"></i> Transfer
+                    </a>
+                </li>
+                <li>
                     <a href="{{ url_for('reports') }}" class="{% if request.endpoint == 'reports' %}active{% endif %}">
                         <i class="bi bi-graph-up"></i> Reports
                     </a>

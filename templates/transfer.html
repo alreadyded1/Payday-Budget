@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}Transfer - Payday Budget{% endblock %}
+
+{% block page_title %}Transfer Between Accounts{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-arrow-left-right"></i> Transfer Funds</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('transfer') }}">
+                    <div class="row g-3">
+                        <!-- Transfer Date -->
+                        <div class="col-md-6">
+                            <label for="transfer_date" class="form-label">Transfer Date</label>
+                            <input type="date" class="form-control" id="transfer_date" name="transfer_date"
+                                   value="{{ today }}" required>
+                        </div>
+
+                        <!-- Amount -->
+                        <div class="col-md-6">
+                            <label for="amount" class="form-label">Amount</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="amount" name="amount"
+                                       step="0.01" min="0.01" required placeholder="0.00">
+                            </div>
+                        </div>
+
+                        <!-- From Account -->
+                        <div class="col-md-6">
+                            <label for="from_account_id" class="form-label">From Account</label>
+                            <select class="form-select" id="from_account_id" name="from_account_id" required>
+                                <option value="">Select source account...</option>
+                                {% for account in accounts %}
+                                <option value="{{ account.id }}" data-balance="{{ account.balance }}">
+                                    {{ account.name }} - ${{ "%.2f"|format(account.balance) }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted" id="from_balance"></small>
+                        </div>
+
+                        <!-- To Account -->
+                        <div class="col-md-6">
+                            <label for="to_account_id" class="form-label">To Account</label>
+                            <select class="form-select" id="to_account_id" name="to_account_id" required>
+                                <option value="">Select destination account...</option>
+                                {% for account in accounts %}
+                                <option value="{{ account.id }}" data-balance="{{ account.balance }}">
+                                    {{ account.name }} - ${{ "%.2f"|format(account.balance) }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted" id="to_balance"></small>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="col-12">
+                            <label for="description" class="form-label">Description (Optional)</label>
+                            <input type="text" class="form-control" id="description" name="description"
+                                   placeholder="Transfer notes...">
+                        </div>
+
+                        <!-- Transfer Summary -->
+                        <div class="col-12" id="transfer_summary" style="display: none;">
+                            <div class="alert alert-info">
+                                <h6 class="alert-heading">Transfer Summary</h6>
+                                <div class="row">
+                                    <div class="col-md-5 text-center">
+                                        <strong id="from_account_name"></strong><br>
+                                        <small class="text-muted">Current: <span id="from_current">$0.00</span></small><br>
+                                        <small class="text-danger">After: <span id="from_after">$0.00</span></small>
+                                    </div>
+                                    <div class="col-md-2 text-center">
+                                        <i class="bi bi-arrow-right" style="font-size: 2rem;"></i><br>
+                                        <strong id="transfer_amount">$0.00</strong>
+                                    </div>
+                                    <div class="col-md-5 text-center">
+                                        <strong id="to_account_name"></strong><br>
+                                        <small class="text-muted">Current: <span id="to_current">$0.00</span></small><br>
+                                        <small class="text-success">After: <span id="to_after">$0.00</span></small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary w-100" id="submit_btn" disabled>
+                                <i class="bi bi-arrow-left-right"></i> Complete Transfer
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Recent Transfers -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-clock-history"></i> Quick Transfer</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Select an amount for quick transfer:</p>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-primary quick-amount" data-amount="10">$10</button>
+                    <button type="button" class="btn btn-outline-primary quick-amount" data-amount="25">$25</button>
+                    <button type="button" class="btn btn-outline-primary quick-amount" data-amount="50">$50</button>
+                    <button type="button" class="btn btn-outline-primary quick-amount" data-amount="100">$100</button>
+                    <button type="button" class="btn btn-outline-primary quick-amount" data-amount="250">$250</button>
+                    <button type="button" class="btn btn-outline-primary quick-amount" data-amount="500">$500</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Quick amount buttons
+    document.querySelectorAll('.quick-amount').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.getElementById('amount').value = this.getAttribute('data-amount');
+            updateTransferSummary();
+        });
+    });
+
+    // Update balance display when account is selected
+    document.getElementById('from_account_id').addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const balance = selectedOption.getAttribute('data-balance');
+        if (balance) {
+            document.getElementById('from_balance').textContent = `Current balance: $${parseFloat(balance).toFixed(2)}`;
+        }
+        updateTransferSummary();
+    });
+
+    document.getElementById('to_account_id').addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const balance = selectedOption.getAttribute('data-balance');
+        if (balance) {
+            document.getElementById('to_balance').textContent = `Current balance: $${parseFloat(balance).toFixed(2)}`;
+        }
+        updateTransferSummary();
+    });
+
+    document.getElementById('amount').addEventListener('input', updateTransferSummary);
+
+    function updateTransferSummary() {
+        const fromSelect = document.getElementById('from_account_id');
+        const toSelect = document.getElementById('to_account_id');
+        const amountInput = document.getElementById('amount');
+
+        const fromAccount = fromSelect.options[fromSelect.selectedIndex];
+        const toAccount = toSelect.options[toSelect.selectedIndex];
+        const amount = parseFloat(amountInput.value) || 0;
+
+        if (fromAccount.value && toAccount.value && amount > 0) {
+            const fromBalance = parseFloat(fromAccount.getAttribute('data-balance'));
+            const toBalance = parseFloat(toAccount.getAttribute('data-balance'));
+
+            // Show summary
+            document.getElementById('transfer_summary').style.display = 'block';
+            document.getElementById('from_account_name').textContent = fromAccount.text.split(' - ')[0];
+            document.getElementById('to_account_name').textContent = toAccount.text.split(' - ')[0];
+            document.getElementById('from_current').textContent = '$' + fromBalance.toFixed(2);
+            document.getElementById('to_current').textContent = '$' + toBalance.toFixed(2);
+            document.getElementById('from_after').textContent = '$' + (fromBalance - amount).toFixed(2);
+            document.getElementById('to_after').textContent = '$' + (toBalance + amount).toFixed(2);
+            document.getElementById('transfer_amount').textContent = '$' + amount.toFixed(2);
+
+            // Enable submit button
+            document.getElementById('submit_btn').disabled = false;
+        } else {
+            document.getElementById('transfer_summary').style.display = 'none';
+            document.getElementById('submit_btn').disabled = true;
+        }
+    }
+
+    // Prevent same account selection
+    document.getElementById('from_account_id').addEventListener('change', function() {
+        const fromValue = this.value;
+        const toSelect = document.getElementById('to_account_id');
+        if (toSelect.value === fromValue) {
+            toSelect.value = '';
+            document.getElementById('to_balance').textContent = '';
+        }
+    });
+
+    document.getElementById('to_account_id').addEventListener('change', function() {
+        const toValue = this.value;
+        const fromSelect = document.getElementById('from_account_id');
+        if (fromSelect.value === toValue) {
+            fromSelect.value = '';
+            document.getElementById('from_balance').textContent = '';
+        }
+    });
+</script>
+{% endblock %}

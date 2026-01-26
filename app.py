@@ -237,12 +237,12 @@ def categories():
     # Get parent categories sorted alphabetically, then their subcategories
     parent_categories_sorted = Category.query.filter_by(user_id=current_user.id, parent_id=None).order_by(Category.name).all()
 
-    # Build list with parents followed by their subcategories
+    # Build list with parents followed by their subcategories (both sorted alphabetically)
     all_categories = []
     for parent in parent_categories_sorted:
         all_categories.append(parent)
-        # Add subcategories for this parent
-        subcategories = Category.query.filter_by(user_id=current_user.id, parent_id=parent.id).all()
+        # Add subcategories for this parent, sorted alphabetically
+        subcategories = Category.query.filter_by(user_id=current_user.id, parent_id=parent.id).order_by(Category.name).all()
         all_categories.extend(subcategories)
 
     # Calculate totals for each category
@@ -516,11 +516,27 @@ def account_transactions(account_id):
     payees = Payee.query.filter_by(user_id=current_user.id).order_by(Payee.name).all()
     categories = Category.query.filter_by(user_id=current_user.id).all()
 
+    # Calculate reconciled amount
+    reconciled_debits = db.session.query(func.sum(Transaction.amount))\
+        .filter(Transaction.account_id == account_id)\
+        .filter(Transaction.reconciled == True)\
+        .filter(Transaction.transaction_type == 'Debit')\
+        .scalar() or 0.0
+
+    reconciled_credits = db.session.query(func.sum(Transaction.amount))\
+        .filter(Transaction.account_id == account_id)\
+        .filter(Transaction.reconciled == True)\
+        .filter(Transaction.transaction_type == 'Credit')\
+        .scalar() or 0.0
+
+    reconciled_balance = account.opening_balance + reconciled_credits - reconciled_debits
+
     return render_template('account_transactions.html',
                          account=account,
                          transactions=transactions_with_balance,
                          payees=payees,
                          categories=categories,
+                         reconciled_balance=reconciled_balance,
                          today=date.today().isoformat())
 
 @app.route('/payees', methods=['GET', 'POST'])
@@ -601,6 +617,14 @@ def delete_transaction(transaction_id):
     db.session.commit()
     flash('Transaction deleted successfully!', 'success')
     return redirect(url_for('account_transactions', account_id=account_id))
+
+@app.route('/transactions/<int:transaction_id>/toggle_reconciled', methods=['POST'])
+@login_required
+def toggle_reconciled(transaction_id):
+    transaction = Transaction.query.filter_by(id=transaction_id, user_id=current_user.id).first_or_404()
+    transaction.reconciled = not transaction.reconciled
+    db.session.commit()
+    return jsonify({'success': True, 'reconciled': transaction.reconciled})
 
 @app.route('/budgets', methods=['GET', 'POST'])
 @login_required
@@ -684,6 +708,88 @@ def delete_budget(budget_id):
     db.session.commit()
     flash('Budget deleted successfully!', 'success')
     return redirect(url_for('budgets'))
+
+@app.route('/transfer', methods=['GET', 'POST'])
+@login_required
+def transfer():
+    if request.method == 'POST':
+        from_account_id = request.form.get('from_account_id')
+        to_account_id = request.form.get('to_account_id')
+        amount = float(request.form.get('amount'))
+        transfer_date = datetime.strptime(request.form.get('transfer_date'), '%Y-%m-%d').date()
+        description = request.form.get('description', '')
+
+        # Validation
+        if not from_account_id or not to_account_id:
+            flash('Please select both source and destination accounts.', 'error')
+            return redirect(url_for('transfer'))
+
+        if from_account_id == to_account_id:
+            flash('Cannot transfer to the same account.', 'error')
+            return redirect(url_for('transfer'))
+
+        if amount <= 0:
+            flash('Transfer amount must be greater than zero.', 'error')
+            return redirect(url_for('transfer'))
+
+        # Get accounts
+        from_account = Account.query.filter_by(id=from_account_id, user_id=current_user.id).first_or_404()
+        to_account = Account.query.filter_by(id=to_account_id, user_id=current_user.id).first_or_404()
+
+        # Get or create "Transfer" payee and category
+        transfer_payee = Payee.query.filter_by(user_id=current_user.id, name='Transfer').first()
+        if not transfer_payee:
+            transfer_payee = Payee(user_id=current_user.id, name='Transfer')
+            db.session.add(transfer_payee)
+            db.session.flush()
+
+        transfer_category = Category.query.filter_by(user_id=current_user.id, name='Transfer').first()
+        if not transfer_category:
+            transfer_category = Category(user_id=current_user.id, name='Transfer', color='#6c757d')
+            db.session.add(transfer_category)
+            db.session.flush()
+
+        # Create debit transaction for source account
+        debit_transaction = Transaction(
+            user_id=current_user.id,
+            account_id=from_account.id,
+            payee_id=transfer_payee.id,
+            category_id=transfer_category.id,
+            transaction_type='Debit',
+            description=f"Transfer to {to_account.name}" + (f" - {description}" if description else ""),
+            amount=amount,
+            transaction_date=transfer_date
+        )
+        db.session.add(debit_transaction)
+
+        # Create credit transaction for destination account
+        credit_transaction = Transaction(
+            user_id=current_user.id,
+            account_id=to_account.id,
+            payee_id=transfer_payee.id,
+            category_id=transfer_category.id,
+            transaction_type='Credit',
+            description=f"Transfer from {from_account.name}" + (f" - {description}" if description else ""),
+            amount=amount,
+            transaction_date=transfer_date
+        )
+        db.session.add(credit_transaction)
+
+        # Update account balances
+        from_account.balance -= amount
+        to_account.balance += amount
+
+        db.session.commit()
+
+        flash(f'Transfer of ${amount:.2f} from {from_account.name} to {to_account.name} completed successfully!', 'success')
+        return redirect(url_for('transfer'))
+
+    # GET request - show transfer form
+    accounts = Account.query.filter_by(user_id=current_user.id, is_active=True).order_by(Account.name).all()
+
+    return render_template('transfer.html',
+                         accounts=accounts,
+                         today=date.today().isoformat())
 
 @app.route('/reports')
 @login_required

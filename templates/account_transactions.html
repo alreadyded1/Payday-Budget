@@ -11,7 +11,7 @@
         <div class="card mb-4">
             <div class="card-body">
                 <div class="row align-items-center">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <h5 class="mb-1">{{ account.name }}</h5>
                         <p class="text-muted mb-0">
                             <span class="badge bg-secondary">{{ account.account_type }}</span>
@@ -20,19 +20,31 @@
                             {% endif %}
                         </p>
                     </div>
-                    <div class="col-md-3 text-center">
+                    <div class="col-md-2 text-center">
                         <h6 class="text-muted mb-1">Current Balance</h6>
                         <h3 class="mb-0 {% if account.balance >= 0 %}text-success{% else %}text-danger{% endif %}">
                             ${{ "%.2f"|format(account.balance) }}
                         </h3>
                     </div>
-                    <div class="col-md-3 text-center">
+                    <div class="col-md-2 text-center">
+                        <h6 class="text-muted mb-1">Reconciled Balance</h6>
+                        <h3 class="mb-0 {% if reconciled_balance >= 0 %}text-info{% else %}text-warning{% endif %}">
+                            ${{ "%.2f"|format(reconciled_balance) }}
+                        </h3>
+                    </div>
+                    <div class="col-md-2 text-center">
                         <h6 class="text-muted mb-1">Opening Balance</h6>
                         <h5 class="mb-0">${{ "%.2f"|format(account.opening_balance) }}</h5>
                     </div>
-                    <div class="col-md-3 text-center">
+                    <div class="col-md-2 text-center">
                         <h6 class="text-muted mb-1">Total Transactions</h6>
                         <h5 class="mb-0">{{ transactions|length }}</h5>
+                    </div>
+                    <div class="col-md-2 text-center">
+                        <h6 class="text-muted mb-1">Unreconciled Diff</h6>
+                        <h5 class="mb-0 {% if (account.balance - reconciled_balance)|abs < 0.01 %}text-success{% else %}text-danger{% endif %}">
+                            ${{ "%.2f"|format(account.balance - reconciled_balance) }}
+                        </h5>
                     </div>
                 </div>
             </div>
@@ -150,6 +162,7 @@
                     <table class="table table-hover">
                         <thead>
                             <tr>
+                                <th>R</th>
                                 <th>Date</th>
                                 <th>Payee</th>
                                 <th>Category</th>
@@ -162,7 +175,12 @@
                         </thead>
                         <tbody>
                             {% for transaction in transactions %}
-                            <tr>
+                            <tr class="{% if transaction.reconciled %}table-info{% endif %}">
+                                <td class="text-center">
+                                    <input type="checkbox" class="form-check-input reconcile-checkbox"
+                                           data-transaction-id="{{ transaction.id }}"
+                                           {% if transaction.reconciled %}checked{% endif %}>
+                                </td>
                                 <td>{{ transaction.transaction_date.strftime('%Y-%m-%d') }}</td>
                                 <td>{{ transaction.payee.name }}</td>
                                 <td>
@@ -242,5 +260,38 @@
     // Set today's date by default
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('transaction_date').value = today;
+
+    // Handle reconciliation checkbox toggle
+    document.querySelectorAll('.reconcile-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const transactionId = this.getAttribute('data-transaction-id');
+            const row = this.closest('tr');
+
+            fetch(`/transactions/${transactionId}/toggle_reconciled`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Toggle row highlighting
+                    if (data.reconciled) {
+                        row.classList.add('table-info');
+                    } else {
+                        row.classList.remove('table-info');
+                    }
+                    // Reload page to update reconciled balance
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Revert checkbox state on error
+                this.checked = !this.checked;
+            });
+        });
+    });
 </script>
 {% endblock %}

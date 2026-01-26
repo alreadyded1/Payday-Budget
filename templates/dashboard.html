@@ -5,61 +5,6 @@
 
 {% block content %}
 
-<div class="row mb-3">
-    <div class="col-12">
-        <h6 class="text-muted">
-            <i class="bi bi-calendar-check"></i> Current Period: {{ month_start.strftime('%B %d') }} - {{ month_end.strftime('%B %d, %Y') }}
-        </h6>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-3 col-sm-6">
-        <div class="card stat-card budget">
-            <div class="card-body">
-                <h6 class="text-muted">Total Budget</h6>
-                <h3 class="mb-0">${{ "%.2f"|format(total_budget) }}</h3>
-                <small class="text-muted">This month</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="card stat-card spent">
-            <div class="card-body">
-                <h6 class="text-muted">Total Spent</h6>
-                <h3 class="mb-0">${{ "%.2f"|format(total_spent) }}</h3>
-                <small class="text-muted">From budgeted accounts</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="card stat-card remaining">
-            <div class="card-body">
-                <h6 class="text-muted">Remaining</h6>
-                <h3 class="mb-0 {% if total_budget - total_spent >= 0 %}text-success{% else %}text-danger{% endif %}">
-                    ${{ "%.2f"|format(total_budget - total_spent) }}
-                </h3>
-                <small class="text-muted">Available budget</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="card stat-card income">
-            <div class="card-body">
-                <h6 class="text-muted">Budget Usage</h6>
-                <h3 class="mb-0">
-                    {% if total_budget > 0 %}
-                        {{ "%.0f"|format((total_spent / total_budget) * 100) }}%
-                    {% else %}
-                        0%
-                    {% endif %}
-                </h3>
-                <small class="text-muted">Of total budget</small>
-            </div>
-        </div>
-    </div>
-</div>
-
 {% if budget_progress %}
 <div class="row mt-4">
     <div class="col-12">
