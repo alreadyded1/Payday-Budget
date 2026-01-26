@@ -10,6 +10,7 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -111,3 +112,29 @@ class Budget(db.Model):
             self.period_start_date += timedelta(days=14)
         elif self.recurrence_type == 'Monthly':
             self.period_start_date += relativedelta(months=1)
+
+class Settings(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(100), unique=True, nullable=False)
+    value = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @staticmethod
+    def get_value(key, default=None):
+        """Get a setting value by key"""
+        setting = Settings.query.filter_by(key=key).first()
+        return setting.value if setting else default
+
+    @staticmethod
+    def set_value(key, value):
+        """Set a setting value by key"""
+        setting = Settings.query.filter_by(key=key).first()
+        if setting:
+            setting.value = value
+            setting.updated_at = datetime.utcnow()
+        else:
+            setting = Settings(key=key, value=value)
+            db.session.add(setting)
+        db.session.commit()
+        return setting

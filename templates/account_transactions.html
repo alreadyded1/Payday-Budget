@@ -162,15 +162,15 @@
                     <table class="table table-hover">
                         <thead>
                             <tr>
-                                <th>R</th>
-                                <th>Date</th>
-                                <th>Payee</th>
-                                <th>Category</th>
-                                <th>Type</th>
-                                <th class="text-end">Debit</th>
-                                <th class="text-end">Credit</th>
-                                <th class="text-end">Balance</th>
-                                <th></th>
+                                <th class="text-center">R</th>
+                                <th class="text-center">Date</th>
+                                <th class="text-center">Payee</th>
+                                <th class="text-center">Category</th>
+                                <th class="text-center">Description</th>
+                                <th class="text-center">Debit</th>
+                                <th class="text-center">Credit</th>
+                                <th class="text-center">Balance</th>
+                                <th class="text-center"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -181,32 +181,28 @@
                                            data-transaction-id="{{ transaction.id }}"
                                            {% if transaction.reconciled %}checked{% endif %}>
                                 </td>
-                                <td>{{ transaction.transaction_date.strftime('%Y-%m-%d') }}</td>
-                                <td>{{ transaction.payee.name }}</td>
-                                <td>
+                                <td class="text-center">{{ transaction.transaction_date.strftime('%Y-%m-%d') }}</td>
+                                <td class="text-center">{{ transaction.payee.name }}</td>
+                                <td class="text-center">
                                     <span class="badge bg-secondary">{{ transaction.category.name }}</span>
                                 </td>
-                                <td>
-                                    {% if transaction.transaction_type == 'Debit' %}
-                                    <span class="badge bg-danger">Debit</span>
-                                    {% else %}
-                                    <span class="badge bg-success">Credit</span>
-                                    {% endif %}
+                                <td class="text-center">
+                                    <small class="text-muted">{{ transaction.description or '' }}</small>
                                 </td>
-                                <td class="text-end text-danger">
+                                <td class="text-center {% if transaction.transaction_type == 'Debit' %}text-danger{% endif %}">
                                     {% if transaction.transaction_type == 'Debit' %}
                                     ${{ "%.2f"|format(transaction.amount) }}
                                     {% endif %}
                                 </td>
-                                <td class="text-end text-success">
+                                <td class="text-center {% if transaction.transaction_type == 'Credit' %}text-success{% endif %}">
                                     {% if transaction.transaction_type == 'Credit' %}
                                     ${{ "%.2f"|format(transaction.amount) }}
                                     {% endif %}
                                 </td>
-                                <td class="text-end fw-bold {% if transaction.running_balance >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                <td class="text-center fw-bold {% if transaction.running_balance >= 0 %}text-success{% else %}text-danger{% endif %}">
                                     ${{ "%.2f"|format(transaction.running_balance) }}
                                 </td>
-                                <td>
+                                <td class="text-center">
                                     <form method="POST" action="{{ url_for('delete_transaction', transaction_id=transaction.id) }}"
                                           class="d-inline" onsubmit="return confirm('Delete this transaction?');">
                                         <button type="submit" class="btn btn-sm btn-outline-danger">

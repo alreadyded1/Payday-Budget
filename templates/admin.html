@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel - Payday Budget{% endblock %}
+
+{% block page_title %}Admin Panel{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Registration Settings -->
+    <div class="col-lg-6">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-gear"></i> Registration Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6>User Registration</h6>
+                        <p class="text-muted mb-0">
+                            {% if registration_enabled %}
+                                <span class="badge bg-success">Enabled</span>
+                                New users can register for accounts
+                            {% else %}
+                                <span class="badge bg-danger">Disabled</span>
+                                New user registration is blocked
+                            {% endif %}
+                        </p>
+                    </div>
+                    <form method="POST" class="d-inline">
+                        <input type="hidden" name="action" value="toggle_registration">
+                        <button type="submit" class="btn {% if registration_enabled %}btn-danger{% else %}btn-success{% endif %}">
+                            {% if registration_enabled %}
+                                <i class="bi bi-x-circle"></i> Disable
+                            {% else %}
+                                <i class="bi bi-check-circle"></i> Enable
+                            {% endif %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Info -->
+    <div class="col-lg-6">
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="bi bi-info-circle"></i> System Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <strong>Total Users:</strong> {{ users|length }}
+                </div>
+                <div class="mb-2">
+                    <strong>Admin Users:</strong> {{ users|selectattr('is_admin')|list|length }}
+                </div>
+                <div>
+                    <strong>Regular Users:</strong> {{ users|rejectattr('is_admin')|list|length }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Management -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="bi bi-people"></i> User Management</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th class="text-center">ID</th>
+                                <th class="text-center">Username</th>
+                                <th class="text-center">Status</th>
+                                <th class="text-center">Created</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td class="text-center">{{ user.id }}</td>
+                                <td class="text-center">
+                                    {{ user.username }}
+                                    {% if user.id == current_user.id %}
+                                    <span class="badge bg-primary">You</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if user.is_admin %}
+                                    <span class="badge bg-success">Admin</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">User</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                                <td class="text-center">
+                                    {% if user.is_admin and user.id != current_user.id %}
+                                    <form method="POST" class="d-inline">
+                                        <input type="hidden" name="action" value="remove_admin">
+                                        <input type="hidden" name="user_id" value="{{ user.id }}">
+                                        <button type="submit" class="btn btn-sm btn-warning"
+                                                onclick="return confirm('Remove admin privileges from {{ user.username }}?');">
+                                            <i class="bi bi-dash-circle"></i> Remove Admin
+                                        </button>
+                                    </form>
+                                    {% elif not user.is_admin %}
+                                    <form method="POST" class="d-inline">
+                                        <input type="hidden" name="action" value="make_admin">
+                                        <input type="hidden" name="user_id" value="{{ user.id }}">
+                                        <button type="submit" class="btn btn-sm btn-success"
+                                                onclick="return confirm('Make {{ user.username }} an admin?');">
+                                            <i class="bi bi-plus-circle"></i> Make Admin
+                                        </button>
+                                    </form>
+                                    {% endif %}
+
+                                    {% if user.id == current_user.id %}
+                                    <span class="text-muted small">Cannot modify own admin status</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <h6 class="alert-heading"><i class="bi bi-info-circle"></i> Admin Panel Information</h6>
+            <ul class="mb-0">
+                <li>Only admin users can access this panel</li>
+                <li>When registration is disabled, new users cannot create accounts</li>
+                <li>You cannot remove your own admin privileges</li>
+                <li>At least one admin user should exist in the system</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

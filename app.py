@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User, Category, Transaction, Budget, Account, Payee
+from models import db, User, Category, Transaction, Budget, Account, Payee, Settings
 from datetime import datetime, date, timedelta
 from sqlalchemy import func, extract, case
 import os
@@ -47,6 +47,12 @@ def login():
 def register():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
+
+    # Check if registration is enabled
+    registration_enabled = Settings.get_value('registration_enabled', 'true')
+    if registration_enabled.lower() != 'true':
+        flash('Registration is currently disabled. Please contact an administrator.', 'warning')
+        return redirect(url_for('login'))
 
     if request.method == 'POST':
         username = request.form.get('username')
@@ -853,6 +859,54 @@ def reports():
                          monthly_spending=monthly_spending,
                          current_period=period,
                          period_label=period_label)
+
+@app.route('/admin', methods=['GET', 'POST'])
+@login_required
+def admin():
+    # Check if user is admin
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+
+        if action == 'toggle_registration':
+            current_value = Settings.get_value('registration_enabled', 'true')
+            new_value = 'false' if current_value.lower() == 'true' else 'true'
+            Settings.set_value('registration_enabled', new_value)
+            status = 'enabled' if new_value == 'true' else 'disabled'
+            flash(f'Registration has been {status}.', 'success')
+
+        elif action == 'make_admin':
+            user_id = request.form.get('user_id')
+            user = User.query.get(user_id)
+            if user:
+                user.is_admin = True
+                db.session.commit()
+                flash(f'User {user.username} is now an admin.', 'success')
+
+        elif action == 'remove_admin':
+            user_id = request.form.get('user_id')
+            user = User.query.get(user_id)
+            if user and user.id != current_user.id:
+                user.is_admin = False
+                db.session.commit()
+                flash(f'Admin privileges removed from {user.username}.', 'success')
+            elif user and user.id == current_user.id:
+                flash('You cannot remove your own admin privileges.', 'warning')
+
+        return redirect(url_for('admin'))
+
+    # Get all users
+    all_users = User.query.order_by(User.created_at).all()
+
+    # Get current registration setting
+    registration_enabled = Settings.get_value('registration_enabled', 'true').lower() == 'true'
+
+    return render_template('admin.html',
+                         users=all_users,
+                         registration_enabled=registration_enabled)
 
 if __name__ == '__main__':
     with app.app_context():

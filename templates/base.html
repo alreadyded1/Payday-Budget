@@ -128,6 +128,10 @@
             color: #2ecc71;
         }
 
+        #sidebar .submenu li a .account-balance.text-danger {
+            color: #e74c3c !important;
+        }
+
         #content {
             width: 100%;
             padding: 0;
@@ -264,7 +268,7 @@
                             <li>
                                 <a href="{{ url_for('account_transactions', account_id=account.id) }}">
                                     {{ account.name }}
-                                    <span class="account-balance">${{ "%.2f"|format(account.balance) }}</span>
+                                    <span class="account-balance {% if account.balance < 0 %}text-danger{% endif %}">${{ "%.2f"|format(account.balance) }}</span>
                                 </a>
                             </li>
                             {% endfor %}
@@ -301,6 +305,13 @@
                         <i class="bi bi-graph-up"></i> Reports
                     </a>
                 </li>
+                {% if current_user.is_admin %}
+                <li>
+                    <a href="{{ url_for('admin') }}" class="{% if request.endpoint == 'admin' %}active{% endif %}" style="border-top: 2px solid #3498db;">
+                        <i class="bi bi-shield-check"></i> Admin Panel
+                    </a>
+                </li>
+                {% endif %}
             </ul>
 
             <div class="user-info">
