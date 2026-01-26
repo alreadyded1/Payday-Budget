@@ -10,8 +10,8 @@
     <div class="col-12">
         <div class="card mb-4">
             <div class="card-body">
-                <div class="row align-items-center">
-                    <div class="col-md-2">
+                <div class="row align-items-center g-3">
+                    <div class="col-12 col-md-2">
                         <h5 class="mb-1">{{ account.name }}</h5>
                         <p class="text-muted mb-0">
                             <span class="badge bg-secondary">{{ account.account_type }}</span>
@@ -20,27 +20,27 @@
                             {% endif %}
                         </p>
                     </div>
-                    <div class="col-md-2 text-center">
+                    <div class="col-6 col-md-2 text-center account-summary-card">
                         <h6 class="text-muted mb-1">Current Balance</h6>
                         <h3 class="mb-0 {% if account.balance >= 0 %}text-success{% else %}text-danger{% endif %}">
                             ${{ "%.2f"|format(account.balance) }}
                         </h3>
                     </div>
-                    <div class="col-md-2 text-center">
+                    <div class="col-6 col-md-2 text-center account-summary-card">
                         <h6 class="text-muted mb-1">Reconciled Balance</h6>
                         <h3 class="mb-0 {% if reconciled_balance >= 0 %}text-info{% else %}text-warning{% endif %}">
                             ${{ "%.2f"|format(reconciled_balance) }}
                         </h3>
                     </div>
-                    <div class="col-md-2 text-center">
+                    <div class="col-6 col-md-2 text-center account-summary-card">
                         <h6 class="text-muted mb-1">Opening Balance</h6>
                         <h5 class="mb-0">${{ "%.2f"|format(account.opening_balance) }}</h5>
                     </div>
-                    <div class="col-md-2 text-center">
+                    <div class="col-6 col-md-2 text-center account-summary-card">
                         <h6 class="text-muted mb-1">Total Transactions</h6>
                         <h5 class="mb-0">{{ transactions|length }}</h5>
                     </div>
-                    <div class="col-md-2 text-center">
+                    <div class="col-12 col-md-2 text-center account-summary-card">
                         <h6 class="text-muted mb-1">Unreconciled Diff</h6>
                         <h5 class="mb-0 {% if (account.balance - reconciled_balance)|abs < 0.01 %}text-success{% else %}text-danger{% endif %}">
                             ${{ "%.2f"|format(account.balance - reconciled_balance) }}

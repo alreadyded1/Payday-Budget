@@ -219,10 +219,27 @@
             background: #c0392b;
         }
 
+        /* Mobile overlay */
+        #mobile-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 998;
+        }
+
+        #mobile-overlay.active {
+            display: block;
+        }
+
         /* Mobile responsive */
         @media (max-width: 768px) {
             #sidebar {
                 margin-left: calc(-1 * var(--sidebar-width));
+                z-index: 999;
             }
 
             #sidebar.active {
@@ -234,7 +251,83 @@
             }
 
             #content.active {
-                margin-left: var(--sidebar-width);
+                margin-left: 0;
+            }
+
+            .top-bar {
+                padding: 10px 15px;
+            }
+
+            .main-content {
+                padding: 0 15px 15px 15px;
+            }
+
+            .top-bar .page-title h4 {
+                font-size: 1.1rem;
+            }
+
+            /* Make cards stack better on mobile */
+            .card {
+                margin-bottom: 1rem;
+            }
+
+            /* Improve table responsiveness */
+            .table-responsive {
+                font-size: 0.85rem;
+            }
+
+            /* Make forms more mobile-friendly */
+            .form-label {
+                font-size: 0.9rem;
+            }
+
+            .form-control, .form-select {
+                font-size: 0.9rem;
+            }
+
+            /* Better button sizing on mobile */
+            .btn {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.9rem;
+            }
+
+            /* Sidebar adjustments for mobile */
+            #sidebar .sidebar-header h3 {
+                font-size: 1.1rem;
+            }
+
+            #sidebar ul li a {
+                padding: 12px 15px;
+                font-size: 0.95rem;
+            }
+
+            #sidebar .submenu li a {
+                padding: 10px 15px 10px 40px;
+                font-size: 0.85rem;
+            }
+        }
+
+        /* Extra small devices */
+        @media (max-width: 576px) {
+            .col-md-2, .col-md-3, .col-md-4, .col-md-6 {
+                margin-bottom: 0.75rem;
+            }
+
+            h3 {
+                font-size: 1.5rem;
+            }
+
+            h4 {
+                font-size: 1.25rem;
+            }
+
+            h5 {
+                font-size: 1.1rem;
+            }
+
+            /* Stack account summary cards vertically on very small screens */
+            .account-summary-card {
+                margin-bottom: 1rem;
             }
         }
     </style>
@@ -324,14 +417,41 @@
             </div>
         </nav>
 
+        <!-- Mobile Overlay -->
+        <div id="mobile-overlay"></div>
+
         <script>
             // Sidebar toggle functionality
             document.addEventListener('DOMContentLoaded', function() {
                 const sidebarCollapse = document.getElementById('sidebarCollapse');
+                const sidebar = document.getElementById('sidebar');
+                const content = document.getElementById('content');
+                const mobileOverlay = document.getElementById('mobile-overlay');
+
+                function toggleSidebar() {
+                    sidebar.classList.toggle('active');
+                    content.classList.toggle('active');
+                    mobileOverlay.classList.toggle('active');
+                }
+
                 if (sidebarCollapse) {
-                    sidebarCollapse.addEventListener('click', function() {
-                        document.getElementById('sidebar').classList.toggle('active');
-                        document.getElementById('content').classList.toggle('active');
+                    sidebarCollapse.addEventListener('click', toggleSidebar);
+                }
+
+                // Close sidebar when clicking overlay on mobile
+                if (mobileOverlay) {
+                    mobileOverlay.addEventListener('click', toggleSidebar);
+                }
+
+                // Close sidebar when clicking a link on mobile
+                if (window.innerWidth <= 768) {
+                    const sidebarLinks = document.querySelectorAll('#sidebar a:not([data-bs-toggle])');
+                    sidebarLinks.forEach(link => {
+                        link.addEventListener('click', function() {
+                            if (sidebar.classList.contains('active')) {
+                                toggleSidebar();
+                            }
+                        });
                     });
                 }
             });
