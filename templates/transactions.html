@@ -45,6 +45,7 @@
                         </td>
                         <td class="text-end">
                             <form method="POST" action="{{ url_for('delete_transaction', transaction_id=transaction.id) }}" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this transaction?')">
                                     <i class="bi bi-trash"></i>
                                 </button>
@@ -76,6 +77,7 @@
             </div>
             <div class="card-body">
                 <form method="POST" id="transactionForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label for="transaction_date" class="form-label">Date</label>
                         <input type="date" class="form-control" id="transaction_date" name="transaction_date" required

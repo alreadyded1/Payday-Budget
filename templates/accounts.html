@@ -63,6 +63,7 @@
                                 <td class="text-end"><strong>${{ "%.2f"|format(account.balance) }}</strong></td>
                                 <td>
                                     <form method="POST" action="{{ url_for('toggle_account_budget', account_id=account.id) }}" style="display: inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="btn btn-sm btn-{% if account.include_in_budget %}success{% else %}secondary{% endif %}"
                                                 title="{% if account.include_in_budget %}Included in budget{% else %}Not in budget{% endif %}">
                                             <i class="bi bi-{% if account.include_in_budget %}check-circle-fill{% else %}circle{% endif %}"></i>
@@ -71,6 +72,7 @@
                                 </td>
                                 <td>
                                     <form method="POST" action="{{ url_for('toggle_account_active', account_id=account.id) }}" style="display: inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="btn btn-sm btn-{% if account.is_active %}success{% else %}warning{% endif %}">
                                             {% if account.is_active %}Active{% else %}Inactive{% endif %}
                                         </button>
@@ -78,6 +80,7 @@
                                 </td>
                                 <td class="text-end">
                                     <form method="POST" action="{{ url_for('delete_account', account_id=account.id) }}" style="display: inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this account?')">
                                             <i class="bi bi-trash"></i>
                                         </button>
@@ -104,6 +107,7 @@
             </div>
             <div class="card-body">
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label for="name" class="form-label">Account Name</label>
                         <input type="text" class="form-control" id="name" name="name" required>

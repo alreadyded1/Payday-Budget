@@ -27,6 +27,7 @@
                         </p>
                     </div>
                     <form method="POST" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="action" value="toggle_registration">
                         <button type="submit" class="btn {% if registration_enabled %}btn-danger{% else %}btn-success{% endif %}">
                             {% if registration_enabled %}
@@ -102,6 +103,7 @@
                                 <td class="text-center">
                                     {% if user.is_admin and user.id != current_user.id %}
                                     <form method="POST" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <input type="hidden" name="action" value="remove_admin">
                                         <input type="hidden" name="user_id" value="{{ user.id }}">
                                         <button type="submit" class="btn btn-sm btn-warning"
@@ -111,6 +113,7 @@
                                     </form>
                                     {% elif not user.is_admin %}
                                     <form method="POST" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <input type="hidden" name="action" value="make_admin">
                                         <input type="hidden" name="user_id" value="{{ user.id }}">
                                         <button type="submit" class="btn btn-sm btn-success"
@@ -150,6 +153,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-body">
                     <input type="hidden" name="action" value="change_password">
                     <input type="hidden" name="user_id" value="{{ user.id }}">

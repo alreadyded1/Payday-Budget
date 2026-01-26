@@ -73,6 +73,7 @@
                                     <form method="POST" action="{{ url_for('delete_budget', budget_id=item.budget.id) }}"
                                           style="display: inline;"
                                           onsubmit="return confirm('Delete this budget?')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="btn btn-sm btn-outline-danger">
                                             <i class="bi bi-trash"></i>
                                         </button>
@@ -102,6 +103,7 @@
             </div>
             <div class="card-body">
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label for="category_id" class="form-label">Category</label>
                         <select class="form-select" id="category_id" name="category_id" required>

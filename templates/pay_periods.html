@@ -30,6 +30,7 @@
                             <td class="text-end">${{ "%.2f"|format(period.income) }}</td>
                             <td class="text-end">
                                 <form method="POST" action="{{ url_for('delete_pay_period', period_id=period.id) }}" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure? This will delete all associated transactions.')">
                                         <i class="bi bi-trash"></i>
                                     </button>
@@ -54,6 +55,7 @@
                 </div>
                 <div class="card-body">
                     <form method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="mb-3">
                             <label for="period_type" class="form-label">Period Type</label>
                             <select class="form-select" id="period_type" name="period_type" required>

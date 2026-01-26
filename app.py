@@ -1,14 +1,37 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from models import db, User, Category, Transaction, Budget, Account, Payee, Settings
 from datetime import datetime, date, timedelta
 from sqlalchemy import func, extract, case
 import os
+import secrets
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+
+# Security Configuration
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///payday_budget.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Session Security
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('HTTPS_ENABLED', 'False').lower() == 'true'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
+
+# CSRF Protection
+csrf = CSRFProtect(app)
+
+# Rate Limiting
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"
+)
 
 db.init_app(app)
 login_manager = LoginManager()
@@ -19,6 +42,17 @@ login_manager.login_view = 'login'
 def load_user(user_id):
     return db.session.get(User, int(user_id))
 
+# Security Headers Middleware
+@app.after_request
+def set_security_headers(response):
+    """Add security headers to all responses"""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data:;"
+    return response
+
 @app.route('/')
 def index():
     if current_user.is_authenticated:
@@ -26,13 +60,24 @@ def index():
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+
+        # Input validation
+        if not username or not password:
+            flash('Username and password are required', 'danger')
+            return render_template('login.html')
+
+        if len(username) > 80:
+            flash('Invalid username or password', 'danger')
+            return render_template('login.html')
+
         user = User.query.filter_by(username=username).first()
 
         if user and user.check_password(password):
@@ -44,6 +89,7 @@ def login():
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
+@limiter.limit("5 per hour")
 def register():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
@@ -55,12 +101,30 @@ def register():
         return redirect(url_for('login'))
 
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        confirm_password = request.form.get('confirm_password', '')
+
+        # Input validation
+        if not username or not password:
+            flash('Username and password are required', 'danger')
+            return render_template('register.html')
+
+        if len(username) < 3 or len(username) > 80:
+            flash('Username must be between 3 and 80 characters', 'danger')
+            return render_template('register.html')
+
+        if len(password) < 4:
+            flash('Password must be at least 4 characters long', 'danger')
+            return render_template('register.html')
 
         if password != confirm_password:
             flash('Passwords do not match', 'danger')
+            return render_template('register.html')
+
+        # Check for alphanumeric username (basic sanitization)
+        if not username.replace('_', '').replace('-', '').isalnum():
+            flash('Username can only contain letters, numbers, underscores, and hyphens', 'danger')
             return render_template('register.html')
 
         if User.query.filter_by(username=username).first():
@@ -626,6 +690,7 @@ def delete_transaction(transaction_id):
 
 @app.route('/transactions/<int:transaction_id>/toggle_reconciled', methods=['POST'])
 @login_required
+@csrf.exempt  # CSRF handled by JavaScript fetch
 def toggle_reconciled(transaction_id):
     transaction = Transaction.query.filter_by(id=transaction_id, user_id=current_user.id).first_or_404()
     transaction.reconciled = not transaction.reconciled
