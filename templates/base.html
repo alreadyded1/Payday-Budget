@@ -351,10 +351,10 @@
                     </a>
                 </li>
                 <li class="has-dropdown">
-                    <a href="#accountsSubmenu" data-bs-toggle="collapse" aria-expanded="false">
+                    <a href="#accountsSubmenu" data-bs-toggle="collapse" aria-expanded="true">
                         <i class="bi bi-bank"></i> Accounts
                     </a>
-                    <ul class="collapse submenu list-unstyled" id="accountsSubmenu">
+                    <ul class="collapse show submenu list-unstyled" id="accountsSubmenu">
                         {% set user_accounts = current_user.accounts.filter_by(is_active=True).order_by('account_type', 'name').all() %}
                         {% if user_accounts %}
                             {% for account in user_accounts %}

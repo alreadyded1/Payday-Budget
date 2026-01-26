@@ -896,6 +896,24 @@ def admin():
             elif user and user.id == current_user.id:
                 flash('You cannot remove your own admin privileges.', 'warning')
 
+        elif action == 'change_password':
+            user_id = request.form.get('user_id')
+            new_password = request.form.get('new_password')
+            confirm_password = request.form.get('confirm_password')
+
+            if new_password != confirm_password:
+                flash('Passwords do not match.', 'danger')
+            elif len(new_password) < 4:
+                flash('Password must be at least 4 characters long.', 'danger')
+            else:
+                user = User.query.get(user_id)
+                if user:
+                    user.set_password(new_password)
+                    db.session.commit()
+                    flash(f'Password changed successfully for {user.username}.', 'success')
+                else:
+                    flash('User not found.', 'danger')
+
         return redirect(url_for('admin'))
 
     # Get all users
