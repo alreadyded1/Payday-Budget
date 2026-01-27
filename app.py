@@ -6,8 +6,12 @@ from flask_limiter.util import get_remote_address
 from models import db, User, Category, Transaction, Budget, Account, Payee, Settings
 from datetime import datetime, date, timedelta
 from sqlalchemy import func, extract, case
+from dotenv import load_dotenv
 import os
 import secrets
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 

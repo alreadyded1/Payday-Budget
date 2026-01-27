@@ -59,16 +59,27 @@ All responses include the following security headers:
 ### Before Deploying to Production
 
 #### 1. Environment Variables
-```bash
-# REQUIRED: Set a strong secret key
-export SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+The application uses a `.env` file for configuration (automatically loaded via python-dotenv).
 
-# Enable HTTPS
-export HTTPS_ENABLED="true"
+**Development Setup (Already Done)**:
+- A `.env` file has been created with a secure SECRET_KEY
+- The file is in `.gitignore` and will not be committed
 
-# Set Flask environment
-export FLASK_ENV="production"
-```
+**Production Setup**:
+1. Copy `.env.example` to `.env` on your production server
+2. Generate a new SECRET_KEY:
+   ```bash
+   python3 -c 'import secrets; print(secrets.token_hex(32))'
+   ```
+3. Edit `.env` and update the following:
+   ```bash
+   SECRET_KEY=your-generated-key-here
+   HTTPS_ENABLED=true
+   FLASK_ENV=production
+   FLASK_DEBUG=false
+   ```
+
+**Important**: Never commit the `.env` file to version control. Only commit `.env.example`.
 
 #### 2. HTTPS Configuration
 - [ ] Obtain SSL/TLS certificate (Let's Encrypt recommended)
