@@ -692,6 +692,55 @@ def delete_transaction(transaction_id):
     flash('Transaction deleted successfully!', 'success')
     return redirect(url_for('account_transactions', account_id=account_id))
 
+@app.route('/transactions/<int:transaction_id>/edit', methods=['POST'])
+@login_required
+def edit_transaction(transaction_id):
+    transaction = Transaction.query.filter_by(id=transaction_id, user_id=current_user.id).first_or_404()
+    account_id = transaction.account_id
+    account = db.session.get(Account, account_id)
+
+    # Get old values to reverse balance
+    old_type = transaction.transaction_type
+    old_amount = transaction.amount
+
+    # Get new values from form
+    payee_id = request.form.get('payee_id')
+    category_id = request.form.get('category_id')
+    transaction_type = request.form.get('transaction_type')
+    description = request.form.get('description', '')
+    amount = float(request.form.get('amount'))
+    transaction_date = datetime.strptime(request.form.get('transaction_date'), '%Y-%m-%d').date()
+
+    # Validate inputs
+    if not payee_id or not category_id:
+        flash('Please select a payee and category.', 'error')
+        return redirect(url_for('account_transactions', account_id=account_id))
+
+    # Reverse old transaction impact on balance
+    if old_type == 'Debit':
+        account.balance += old_amount
+    else:  # Credit
+        account.balance -= old_amount
+
+    # Update transaction fields
+    transaction.payee_id = int(payee_id)
+    transaction.category_id = int(category_id)
+    transaction.transaction_type = transaction_type
+    transaction.description = description
+    transaction.amount = amount
+    transaction.transaction_date = transaction_date
+
+    # Apply new transaction impact on balance
+    if transaction_type == 'Debit':
+        account.balance -= amount
+    else:  # Credit
+        account.balance += amount
+
+    db.session.commit()
+
+    flash('Transaction updated successfully!', 'success')
+    return redirect(url_for('account_transactions', account_id=account_id))
+
 @app.route('/transactions/<int:transaction_id>/toggle_reconciled', methods=['POST'])
 @login_required
 @csrf.exempt  # CSRF handled by JavaScript fetch
