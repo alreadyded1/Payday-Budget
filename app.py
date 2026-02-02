@@ -516,57 +516,10 @@ def account_transactions(account_id):
     account = Account.query.filter_by(id=account_id, user_id=current_user.id).first_or_404()
 
     if request.method == 'POST':
-        payee_id = request.form.get('payee_id')
-        new_payee_name = request.form.get('new_payee_name')
-        category_id = request.form.get('category_id')
-        transaction_type = request.form.get('transaction_type')
-        description = request.form.get('description', '')
-        amount = float(request.form.get('amount'))
-        transaction_date = datetime.strptime(request.form.get('transaction_date'), '%Y-%m-%d').date()
+        # Handle regular form submission (non-AJAX)
+        return add_transaction_form(account_id)
 
-        # Create new payee if name provided
-        if new_payee_name and not payee_id:
-            new_payee = Payee(
-                user_id=current_user.id,
-                name=new_payee_name,
-                default_category_id=int(category_id) if category_id else None
-            )
-            db.session.add(new_payee)
-            db.session.flush()
-            payee_id = new_payee.id
-
-        # Validate payee_id and category_id
-        if not payee_id:
-            flash('Please select a payee or enter a new payee name.', 'error')
-            return redirect(url_for('account_transactions', account_id=account_id))
-
-        if not category_id:
-            flash('Please select a category.', 'error')
-            return redirect(url_for('account_transactions', account_id=account_id))
-
-        transaction = Transaction(
-            user_id=current_user.id,
-            account_id=account_id,
-            payee_id=int(payee_id),
-            category_id=int(category_id),
-            transaction_type=transaction_type,
-            description=description,
-            amount=amount,
-            transaction_date=transaction_date
-        )
-        db.session.add(transaction)
-
-        # Update account balance
-        if transaction_type == 'Debit':
-            account.balance -= amount
-        else:  # Credit
-            account.balance += amount
-
-        db.session.commit()
-
-        flash('Transaction added successfully!', 'success')
-        return redirect(url_for('account_transactions', account_id=account_id))
-
+    # GET request - show transactions page
     # Get all transactions for this account
     transactions = Transaction.query.filter_by(account_id=account_id)\
         .order_by(Transaction.transaction_date.desc(), Transaction.id.desc())\
@@ -612,6 +565,162 @@ def account_transactions(account_id):
                          categories=categories,
                          reconciled_balance=reconciled_balance,
                          today=date.today().isoformat())
+
+@app.route('/account/<int:account_id>/add_transaction', methods=['POST'])
+@login_required
+@csrf.exempt  # CSRF handled by JavaScript fetch
+def add_transaction_ajax(account_id):
+    """AJAX endpoint for adding transactions without page reload"""
+    account = Account.query.filter_by(id=account_id, user_id=current_user.id).first_or_404()
+
+    try:
+        data = request.get_json()
+
+        payee_id = data.get('payee_id')
+        new_payee_name = data.get('new_payee_name', '').strip()
+        category_id = data.get('category_id')
+        transaction_type = data.get('transaction_type')
+        description = data.get('description', '')
+        amount = float(data.get('amount'))
+        transaction_date = datetime.strptime(data.get('transaction_date'), '%Y-%m-%d').date()
+
+        # Create new payee if name provided
+        if new_payee_name and not payee_id:
+            new_payee = Payee(
+                user_id=current_user.id,
+                name=new_payee_name,
+                default_category_id=int(category_id) if category_id else None
+            )
+            db.session.add(new_payee)
+            db.session.flush()
+            payee_id = new_payee.id
+
+        # Validate payee_id and category_id
+        if not payee_id:
+            return jsonify({'success': False, 'error': 'Please select a payee or enter a new payee name.'}), 400
+
+        if not category_id:
+            return jsonify({'success': False, 'error': 'Please select a category.'}), 400
+
+        transaction = Transaction(
+            user_id=current_user.id,
+            account_id=account_id,
+            payee_id=int(payee_id),
+            category_id=int(category_id),
+            transaction_type=transaction_type,
+            description=description,
+            amount=amount,
+            transaction_date=transaction_date
+        )
+        db.session.add(transaction)
+
+        # Update account balance
+        if transaction_type == 'Debit':
+            account.balance -= amount
+        else:  # Credit
+            account.balance += amount
+
+        db.session.commit()
+
+        # Get payee and category names
+        payee = Payee.query.get(payee_id)
+        category = Category.query.get(category_id)
+
+        # Calculate new running balance
+        running_balance = account.balance
+
+        # Calculate reconciled balance
+        reconciled_debits = db.session.query(func.sum(Transaction.amount))\
+            .filter(Transaction.account_id == account_id)\
+            .filter(Transaction.reconciled == True)\
+            .filter(Transaction.transaction_type == 'Debit')\
+            .scalar() or 0.0
+
+        reconciled_credits = db.session.query(func.sum(Transaction.amount))\
+            .filter(Transaction.account_id == account_id)\
+            .filter(Transaction.reconciled == True)\
+            .filter(Transaction.transaction_type == 'Credit')\
+            .scalar() or 0.0
+
+        reconciled_balance = account.opening_balance + reconciled_credits - reconciled_debits
+
+        # Return transaction data for dynamic insertion
+        return jsonify({
+            'success': True,
+            'transaction': {
+                'id': transaction.id,
+                'date': transaction.transaction_date.strftime('%Y-%m-%d'),
+                'payee': payee.name,
+                'category': category.name,
+                'description': transaction.description or '',
+                'type': transaction.transaction_type,
+                'amount': float(transaction.amount),
+                'running_balance': float(running_balance),
+                'reconciled': transaction.reconciled
+            },
+            'account_balance': float(account.balance),
+            'reconciled_balance': float(reconciled_balance),
+            'transaction_count': Transaction.query.filter_by(account_id=account_id).count()
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+def add_transaction_form(account_id):
+    """Handle traditional form submission (fallback)"""
+    account = Account.query.filter_by(id=account_id, user_id=current_user.id).first_or_404()
+
+    payee_id = request.form.get('payee_id')
+    new_payee_name = request.form.get('new_payee_name')
+    category_id = request.form.get('category_id')
+    transaction_type = request.form.get('transaction_type')
+    description = request.form.get('description', '')
+    amount = float(request.form.get('amount'))
+    transaction_date = datetime.strptime(request.form.get('transaction_date'), '%Y-%m-%d').date()
+
+    # Create new payee if name provided
+    if new_payee_name and not payee_id:
+        new_payee = Payee(
+            user_id=current_user.id,
+            name=new_payee_name,
+            default_category_id=int(category_id) if category_id else None
+        )
+        db.session.add(new_payee)
+        db.session.flush()
+        payee_id = new_payee.id
+
+    # Validate payee_id and category_id
+    if not payee_id:
+        flash('Please select a payee or enter a new payee name.', 'error')
+        return redirect(url_for('account_transactions', account_id=account_id))
+
+    if not category_id:
+        flash('Please select a category.', 'error')
+        return redirect(url_for('account_transactions', account_id=account_id))
+
+    transaction = Transaction(
+        user_id=current_user.id,
+        account_id=account_id,
+        payee_id=int(payee_id),
+        category_id=int(category_id),
+        transaction_type=transaction_type,
+        description=description,
+        amount=amount,
+        transaction_date=transaction_date
+    )
+    db.session.add(transaction)
+
+    # Update account balance
+    if transaction_type == 'Debit':
+        account.balance -= amount
+    else:  # Credit
+        account.balance += amount
+
+    db.session.commit()
+
+    flash('Transaction added successfully!', 'success')
+    return redirect(url_for('account_transactions', account_id=account_id))
 
 @app.route('/payees', methods=['GET', 'POST'])
 @login_required
