@@ -3,7 +3,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from models import db, User, Category, Transaction, Budget, Account, Payee, Settings
+from models import db, User, Category, Transaction, Budget, Account, Payee, Settings, Subscription
 from datetime import datetime, date, timedelta
 from sqlalchemy import func, extract, case
 from dotenv import load_dotenv
@@ -958,6 +958,74 @@ def delete_budget(budget_id):
     db.session.commit()
     flash('Budget deleted successfully!', 'success')
     return redirect(url_for('budgets'))
+
+@app.route('/subscriptions', methods=['GET', 'POST'])
+@login_required
+def subscriptions():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        cost = float(request.form.get('cost'))
+        day_of_month = int(request.form.get('day_of_month'))
+        category_id = request.form.get('category_id')
+
+        # Validate day of month
+        if day_of_month < 1 or day_of_month > 31:
+            flash('Day of month must be between 1 and 31', 'danger')
+            return redirect(url_for('subscriptions'))
+
+        subscription = Subscription(
+            user_id=current_user.id,
+            name=name,
+            cost=cost,
+            day_of_month=day_of_month,
+            category_id=int(category_id) if category_id else None
+        )
+        db.session.add(subscription)
+        db.session.commit()
+        return redirect(url_for('subscriptions'))
+
+    # GET request
+    subscriptions = Subscription.query.filter_by(user_id=current_user.id, is_active=True)\
+        .order_by(Subscription.day_of_month, Subscription.name).all()
+    categories = Category.query.filter_by(user_id=current_user.id).order_by(Category.name).all()
+
+    # Calculate total monthly cost
+    total_monthly_cost = sum(sub.cost for sub in subscriptions)
+
+    return render_template('subscriptions.html',
+                         subscriptions=subscriptions,
+                         categories=categories,
+                         total_monthly_cost=total_monthly_cost)
+
+@app.route('/subscriptions/<int:subscription_id>/edit', methods=['POST'])
+@login_required
+def edit_subscription(subscription_id):
+    subscription = Subscription.query.filter_by(id=subscription_id, user_id=current_user.id).first_or_404()
+
+    subscription.name = request.form.get('name')
+    subscription.cost = float(request.form.get('cost'))
+    subscription.day_of_month = int(request.form.get('day_of_month'))
+    category_id = request.form.get('category_id')
+    subscription.category_id = int(category_id) if category_id else None
+
+    db.session.commit()
+    return redirect(url_for('subscriptions'))
+
+@app.route('/subscriptions/<int:subscription_id>/delete', methods=['POST'])
+@login_required
+def delete_subscription(subscription_id):
+    subscription = Subscription.query.filter_by(id=subscription_id, user_id=current_user.id).first_or_404()
+    db.session.delete(subscription)
+    db.session.commit()
+    return redirect(url_for('subscriptions'))
+
+@app.route('/subscriptions/<int:subscription_id>/toggle', methods=['POST'])
+@login_required
+def toggle_subscription(subscription_id):
+    subscription = Subscription.query.filter_by(id=subscription_id, user_id=current_user.id).first_or_404()
+    subscription.is_active = not subscription.is_active
+    db.session.commit()
+    return redirect(url_for('subscriptions'))
 
 @app.route('/transfer', methods=['GET', 'POST'])
 @login_required

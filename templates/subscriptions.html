@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Subscriptions - Payday Budget{% endblock %}
+{% block page_title %}Subscription Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h5 class="mb-0">Total Monthly Cost</h5>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <h3 class="mb-0 text-dark">${{ "%.2f"|format(total_monthly_cost) }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-arrow-repeat"></i> Active Subscriptions</h5>
+            </div>
+            <div class="card-body">
+                {% if subscriptions %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Subscription Name</th>
+                                <th>Category</th>
+                                <th class="text-center">Day of Month</th>
+                                <th class="text-end">Monthly Cost</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for subscription in subscriptions %}
+                            <tr>
+                                <td><strong>{{ subscription.name }}</strong></td>
+                                <td>
+                                    {% if subscription.category %}
+                                    <span class="badge bg-secondary">{{ subscription.category.name }}</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-primary">{{ subscription.day_of_month }}</span>
+                                </td>
+                                <td class="text-end">
+                                    <strong class="text-dark">${{ "%.2f"|format(subscription.cost) }}</strong>
+                                </td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-primary me-1"
+                                            data-bs-toggle="modal" data-bs-target="#editModal{{ subscription.id }}">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <form method="POST" action="{{ url_for('delete_subscription', subscription_id=subscription.id) }}"
+                                          style="display: inline;" onsubmit="return confirm('Delete this subscription?');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+
+                            <!-- Edit Modal for this subscription -->
+                            <div class="modal fade" id="editModal{{ subscription.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Edit Subscription</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="POST" action="{{ url_for('edit_subscription', subscription_id=subscription.id) }}">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <label for="edit_name{{ subscription.id }}" class="form-label">Subscription Name</label>
+                                                    <input type="text" class="form-control" id="edit_name{{ subscription.id }}"
+                                                           name="name" value="{{ subscription.name }}" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="edit_cost{{ subscription.id }}" class="form-label">Monthly Cost</label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text">$</span>
+                                                        <input type="number" step="0.01" class="form-control"
+                                                               id="edit_cost{{ subscription.id }}" name="cost"
+                                                               value="{{ subscription.cost }}" required>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="edit_day{{ subscription.id }}" class="form-label">Day of Month</label>
+                                                    <input type="number" min="1" max="31" class="form-control"
+                                                           id="edit_day{{ subscription.id }}" name="day_of_month"
+                                                           value="{{ subscription.day_of_month }}" required>
+                                                    <small class="text-muted">Day the subscription charges (1-31)</small>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="edit_category{{ subscription.id }}" class="form-label">Category (Optional)</label>
+                                                    <select class="form-select" id="edit_category{{ subscription.id }}" name="category_id">
+                                                        <option value="">None</option>
+                                                        {% for category in categories %}
+                                                        <option value="{{ category.id }}"
+                                                                {% if subscription.category_id == category.id %}selected{% endif %}>
+                                                            {{ category.name }}
+                                                        </option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+                    <p class="text-muted mt-3">No subscriptions yet. Add your first subscription!</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header text-white" style="background-color: #2c3f50;">
+                <h5 class="mb-0"><i class="bi bi-plus-circle"></i> Add Subscription</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Subscription Name</label>
+                        <input type="text" class="form-control" id="name" name="name"
+                               placeholder="e.g., Netflix, Spotify, Gym" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="cost" class="form-label">Monthly Cost</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" step="0.01" class="form-control" id="cost" name="cost"
+                                   placeholder="0.00" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="day_of_month" class="form-label">Day of Month</label>
+                        <input type="number" min="1" max="31" class="form-control" id="day_of_month"
+                               name="day_of_month" placeholder="1-31" required>
+                        <small class="text-muted">Day the subscription charges each month</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="category_id" class="form-label">Category (Optional)</label>
+                        <select class="form-select" id="category_id" name="category_id">
+                            <option value="">None</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn w-100 text-white" style="background-color: #2c3f50;">
+                        <i class="bi bi-plus-circle"></i> Add Subscription
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

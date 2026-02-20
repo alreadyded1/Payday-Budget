@@ -394,6 +394,11 @@
                     </a>
                 </li>
                 <li>
+                    <a href="{{ url_for('subscriptions') }}" class="{% if request.endpoint == 'subscriptions' %}active{% endif %}">
+                        <i class="bi bi-arrow-repeat"></i> Subscriptions
+                    </a>
+                </li>
+                <li>
                     <a href="{{ url_for('reports') }}" class="{% if request.endpoint == 'reports' %}active{% endif %}">
                         <i class="bi bi-graph-up"></i> Reports
                     </a>

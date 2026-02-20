@@ -19,6 +19,7 @@ class User(UserMixin, db.Model):
     payees = db.relationship('Payee', backref='user', lazy='dynamic')
     transactions = db.relationship('Transaction', backref='user', lazy='dynamic')
     budgets = db.relationship('Budget', backref='user', lazy='dynamic')
+    subscriptions = db.relationship('Subscription', backref='user', lazy='dynamic')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -112,6 +113,18 @@ class Budget(db.Model):
             self.period_start_date += timedelta(days=14)
         elif self.recurrence_type == 'Monthly':
             self.period_start_date += relativedelta(months=1)
+
+class Subscription(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    cost = db.Column(db.Float, nullable=False)
+    day_of_month = db.Column(db.Integer, nullable=False)  # 1-31
+    category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    category = db.relationship('Category', foreign_keys=[category_id])
 
 class Settings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
