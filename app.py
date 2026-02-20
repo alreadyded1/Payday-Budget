@@ -651,7 +651,9 @@ def add_transaction_ajax(account_id):
                 'id': transaction.id,
                 'date': transaction.transaction_date.strftime('%Y-%m-%d'),
                 'payee': payee.name,
+                'account': account.name,
                 'category': category.name,
+                'category_color': category.color,
                 'description': transaction.description or '',
                 'type': transaction.transaction_type,
                 'amount': float(transaction.amount),
@@ -780,8 +782,22 @@ def delete_payee(payee_id):
 @app.route('/transactions', methods=['GET', 'POST'])
 @login_required
 def transactions():
-    # Redirect to accounts page - transactions are now managed per account
-    return redirect(url_for('accounts'))
+    # Get all user's accounts, payees, and categories
+    accounts = Account.query.filter_by(user_id=current_user.id).all()
+    payees = Payee.query.filter_by(user_id=current_user.id).order_by(Payee.name).all()
+    categories = Category.query.filter_by(user_id=current_user.id).order_by(Category.name).all()
+
+    # Get all transactions across all accounts, ordered by date (most recent first)
+    transactions = Transaction.query.filter_by(user_id=current_user.id)\
+        .order_by(Transaction.transaction_date.desc(), Transaction.id.desc())\
+        .all()
+
+    return render_template('transactions.html',
+                         accounts=accounts,
+                         payees=payees,
+                         categories=categories,
+                         transactions=transactions,
+                         now=date.today().isoformat())
 
 @app.route('/transactions/<int:transaction_id>/delete', methods=['POST'])
 @login_required

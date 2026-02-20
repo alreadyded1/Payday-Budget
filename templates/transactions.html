@@ -6,8 +6,10 @@
 {% block content %}
 <div class="row">
     <div class="col-md-8">
-        {% if transactions %}
-        <div class="table-responsive">
+        <div class="alert alert-info" id="emptyTransactionsAlert" {% if transactions %}style="display: none;"{% endif %}>
+            <i class="bi bi-info-circle"></i> No transactions yet.
+        </div>
+        <div class="table-responsive" {% if not transactions %}style="display: none;"{% endif %}>
             <table class="table table-striped">
                 <thead>
                     <tr>
@@ -63,11 +65,6 @@
                 </tbody>
             </table>
         </div>
-        {% else %}
-        <div class="alert alert-info">
-            <i class="bi bi-info-circle"></i> No transactions yet.
-        </div>
-        {% endif %}
     </div>
 
     <div class="col-md-4">
@@ -192,6 +189,185 @@
                 payeeSelect.disabled = false;
             }
         });
+
+        // Handle transaction form submission with AJAX
+        document.getElementById('transactionForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const accountId = document.getElementById('account_id').value;
+            if (!accountId) {
+                showAlert('Please select an account.', 'danger');
+                return;
+            }
+
+            const submitButton = this.querySelector('button[type="submit"]');
+            const originalButtonText = submitButton.innerHTML;
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Adding...';
+
+            const formData = {
+                payee_id: document.getElementById('payee_id').value,
+                new_payee_name: document.getElementById('payee_name').value,
+                category_id: document.getElementById('category_id').value,
+                transaction_type: document.querySelector('input[name="transaction_type"]:checked').value,
+                description: document.getElementById('description').value,
+                amount: document.getElementById('amount').value,
+                transaction_date: document.getElementById('transaction_date').value
+            };
+
+            fetch(`/account/${accountId}/add_transaction`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    showAlert('Transaction added successfully!', 'success');
+
+                    // Update account balance in the dropdown
+                    updateAccountBalance(accountId, data.account_balance);
+
+                    // Add new transaction row to table
+                    addTransactionToTable(data.transaction);
+
+                    // Reset form
+                    resetForm();
+
+                    // Re-enable payee inputs
+                    payeeSelect.disabled = false;
+                    payeeNameInput.disabled = false;
+                } else {
+                    showAlert(data.error || 'Failed to add transaction.', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('An error occurred while adding the transaction.', 'danger');
+            })
+            .finally(() => {
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonText;
+            });
+        });
+
+        function showAlert(message, type) {
+            // Remove any existing alerts
+            const existingAlert = document.querySelector('.alert-ajax');
+            if (existingAlert) {
+                existingAlert.remove();
+            }
+
+            // Create new alert
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show alert-ajax`;
+            alert.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+
+            // Insert at the top of the content
+            const content = document.querySelector('.row');
+            content.insertBefore(alert, content.firstChild);
+
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                alert.classList.remove('show');
+                setTimeout(() => alert.remove(), 150);
+            }, 5000);
+        }
+
+        function updateAccountBalance(accountId, newBalance) {
+            const accountSelect = document.getElementById('account_id');
+            const option = accountSelect.querySelector(`option[value="${accountId}"]`);
+            if (option) {
+                const accountName = option.textContent.split(' - ')[0];
+                option.textContent = `${accountName} - $${parseFloat(newBalance).toFixed(2)}`;
+            }
+        }
+
+        function addTransactionToTable(transaction) {
+            const tbody = document.querySelector('table tbody');
+            if (!tbody) return;
+
+            // Hide "no transactions" message and show table
+            const emptyAlert = document.getElementById('emptyTransactionsAlert');
+            if (emptyAlert) {
+                emptyAlert.style.display = 'none';
+            }
+            const tableContainer = document.querySelector('.table-responsive');
+            if (tableContainer) {
+                tableContainer.style.display = 'block';
+            }
+
+            const newRow = document.createElement('tr');
+            newRow.innerHTML = `
+                <td>${transaction.date}</td>
+                <td><strong>${transaction.payee}</strong></td>
+                <td>
+                    <small class="text-muted">${transaction.account || ''}</small>
+                </td>
+                <td>
+                    <span class="badge" style="background-color: ${transaction.category_color || '#6c757d'}">
+                        ${transaction.category}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge bg-${transaction.type === 'Debit' ? 'danger' : 'success'}">
+                        ${transaction.type}
+                    </span>
+                </td>
+                <td class="text-end">
+                    <strong class="${transaction.type === 'Debit' ? 'text-danger' : 'text-success'}">
+                        ${transaction.type === 'Debit' ? '-' : '+'}$${parseFloat(transaction.amount).toFixed(2)}
+                    </strong>
+                </td>
+                <td class="text-end">
+                    <form method="POST" action="/transactions/${transaction.id}/delete" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this transaction?')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
+                </td>
+            `;
+
+            // Insert at the top of the table
+            tbody.insertBefore(newRow, tbody.firstChild);
+
+            // Add description row if exists
+            if (transaction.description) {
+                const descRow = document.createElement('tr');
+                descRow.className = 'table-light';
+                descRow.innerHTML = `
+                    <td colspan="7">
+                        <small class="text-muted"><i class="bi bi-journal-text"></i> ${transaction.description}</small>
+                    </td>
+                `;
+                tbody.insertBefore(descRow, newRow.nextSibling);
+            }
+
+            // Highlight the new row briefly
+            newRow.style.backgroundColor = '#d1e7dd';
+            setTimeout(() => {
+                newRow.style.transition = 'background-color 1s';
+                newRow.style.backgroundColor = '';
+            }, 100);
+        }
+
+        function resetForm() {
+            document.getElementById('transactionForm').reset();
+
+            // Reset to today's date
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('transaction_date').value = today;
+
+            // Reset to Debit (default)
+            document.getElementById('type_debit').checked = true;
+        }
     });
 </script>
 {% endblock %}
