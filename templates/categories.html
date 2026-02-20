@@ -12,15 +12,15 @@
             </div>
             <div class="btn-group" role="group">
                 <a href="{{ url_for('categories', period='mtd') }}"
-                   class="btn btn-sm {% if current_period == 'mtd' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                   class="btn btn-sm text-white" style="{% if current_period == 'mtd' %}background-color: #2c3e50;{% else %}background-color: transparent; color: #2c3e50 !important; border: 1px solid #2c3e50;{% endif %}">
                     Month to Date
                 </a>
                 <a href="{{ url_for('categories', period='ytd') }}"
-                   class="btn btn-sm {% if current_period == 'ytd' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                   class="btn btn-sm text-white" style="{% if current_period == 'ytd' %}background-color: #2c3e50;{% else %}background-color: transparent; color: #2c3e50 !important; border: 1px solid #2c3e50;{% endif %}">
                     Year to Date
                 </a>
                 <a href="{{ url_for('categories', period='all') }}"
-                   class="btn btn-sm {% if current_period == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                   class="btn btn-sm text-white" style="{% if current_period == 'all' %}background-color: #2c3e50;{% else %}background-color: transparent; color: #2c3e50 !important; border: 1px solid #2c3e50;{% endif %}">
                     All Time
                 </a>
             </div>
@@ -54,7 +54,7 @@
                                         <i class="bi bi-arrow-return-right text-muted ms-3"></i>
                                     {% endif %}
                                     <a href="{{ url_for('category_transactions', category_id=item.category.id, period=current_period) }}"
-                                       class="text-decoration-none fw-semibold">
+                                       class="text-decoration-none fw-semibold text-dark">
                                         {{ item.category.name }}
                                     </a>
                                 </td>
@@ -143,7 +143,7 @@
 
     <div class="col-md-4">
         <div class="card">
-            <div class="card-header bg-primary text-white">
+            <div class="card-header text-white" style="background-color: #2c3e50;">
                 <h5 class="mb-0"><i class="bi bi-plus-circle"></i> Create Category</h5>
             </div>
             <div class="card-body">
@@ -164,7 +164,7 @@
                         </select>
                         <div class="form-text">Select a parent to create a subcategory</div>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">
+                    <button type="submit" class="btn w-100 text-white" style="background-color: #2c3e50;">
                         <i class="bi bi-plus-circle"></i> Create Category
                     </button>
                 </form>
