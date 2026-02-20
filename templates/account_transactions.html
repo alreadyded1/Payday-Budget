@@ -207,7 +207,7 @@
                                     ${{ "%.2f"|format(transaction.amount) }}
                                     {% endif %}
                                 </td>
-                                <td class="text-center fw-bold {% if transaction.running_balance >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                <td class="text-center fw-bold text-dark">
                                     ${{ "%.2f"|format(transaction.running_balance) }}
                                 </td>
                                 <td class="text-center">
@@ -465,7 +465,7 @@
                         <td class="text-center ${transaction.type === 'Credit' ? 'text-success' : ''}">
                             ${transaction.type === 'Credit' ? '$' + transaction.amount.toFixed(2) : ''}
                         </td>
-                        <td class="text-center fw-bold ${transaction.running_balance >= 0 ? 'text-success' : 'text-danger'}">
+                        <td class="text-center fw-bold text-dark">
                             $${transaction.running_balance.toFixed(2)}
                         </td>
                         <td class="text-center">
