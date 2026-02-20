@@ -211,8 +211,14 @@
                                     ${{ "%.2f"|format(transaction.running_balance) }}
                                 </td>
                                 <td class="text-center">
-                                    <button type="button" class="btn btn-sm btn-outline-primary me-1"
-                                            data-bs-toggle="modal" data-bs-target="#editModal{{ transaction.id }}">
+                                    <button type="button" class="btn btn-sm btn-outline-primary me-1 edit-transaction-btn"
+                                            data-transaction-id="{{ transaction.id }}"
+                                            data-date="{{ transaction.transaction_date.strftime('%Y-%m-%d') }}"
+                                            data-payee-id="{{ transaction.payee_id }}"
+                                            data-category-id="{{ transaction.category_id }}"
+                                            data-type="{{ transaction.transaction_type }}"
+                                            data-amount="{{ transaction.amount }}"
+                                            data-description="{{ transaction.description or '' }}">
                                         <i class="bi bi-pencil"></i>
                                     </button>
                                     <form method="POST" action="{{ url_for('delete_transaction', transaction_id=transaction.id) }}"
@@ -258,58 +264,54 @@
     </div>
 </div>
 
-<!-- Edit Transaction Modals -->
-{% for transaction in transactions %}
-<div class="modal fade" id="editModal{{ transaction.id }}" tabindex="-1" aria-labelledby="editModalLabel{{ transaction.id }}" aria-hidden="true">
+<!-- Single Edit Transaction Modal (Dynamic) -->
+<div class="modal fade" id="editTransactionModal" tabindex="-1" aria-labelledby="editTransactionModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="editModalLabel{{ transaction.id }}">
+                <h5 class="modal-title" id="editTransactionModalLabel">
                     <i class="bi bi-pencil"></i> Edit Transaction
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="POST" action="{{ url_for('edit_transaction', transaction_id=transaction.id) }}">
+            <form method="POST" id="editTransactionForm">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="transaction_id" id="edit_transaction_id">
                 <div class="modal-body">
                     <div class="row g-3">
                         <!-- Date -->
                         <div class="col-md-6">
-                            <label for="edit_date{{ transaction.id }}" class="form-label">Date</label>
-                            <input type="date" class="form-control" id="edit_date{{ transaction.id }}"
-                                   name="transaction_date" value="{{ transaction.transaction_date.strftime('%Y-%m-%d') }}" required>
+                            <label for="edit_date" class="form-label">Date</label>
+                            <input type="date" class="form-control" id="edit_date"
+                                   name="transaction_date" required>
                         </div>
 
                         <!-- Amount -->
                         <div class="col-md-6">
-                            <label for="edit_amount{{ transaction.id }}" class="form-label">Amount</label>
+                            <label for="edit_amount" class="form-label">Amount</label>
                             <div class="input-group">
                                 <span class="input-group-text">$</span>
-                                <input type="number" class="form-control" id="edit_amount{{ transaction.id }}"
-                                       name="amount" value="{{ transaction.amount }}" step="0.01" min="0.01" required>
+                                <input type="number" class="form-control" id="edit_amount"
+                                       name="amount" step="0.01" min="0.01" required>
                             </div>
                         </div>
 
                         <!-- Payee -->
                         <div class="col-md-6">
-                            <label for="edit_payee{{ transaction.id }}" class="form-label">Payee</label>
-                            <select class="form-select" id="edit_payee{{ transaction.id }}" name="payee_id" required>
+                            <label for="edit_payee" class="form-label">Payee</label>
+                            <select class="form-select" id="edit_payee" name="payee_id" required>
                                 {% for payee in payees %}
-                                <option value="{{ payee.id }}" {% if payee.id == transaction.payee_id %}selected{% endif %}>
-                                    {{ payee.name }}
-                                </option>
+                                <option value="{{ payee.id }}">{{ payee.name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
 
                         <!-- Category -->
                         <div class="col-md-6">
-                            <label for="edit_category{{ transaction.id }}" class="form-label">Category</label>
-                            <select class="form-select" id="edit_category{{ transaction.id }}" name="category_id" required>
+                            <label for="edit_category" class="form-label">Category</label>
+                            <select class="form-select" id="edit_category" name="category_id" required>
                                 {% for category in categories %}
-                                <option value="{{ category.id }}" {% if category.id == transaction.category_id %}selected{% endif %}>
-                                    {{ category.name }}
-                                </option>
+                                <option value="{{ category.id }}">{{ category.name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -319,15 +321,13 @@
                             <label class="form-label">Type</label>
                             <div class="btn-group w-100" role="group">
                                 <input type="radio" class="btn-check" name="transaction_type"
-                                       id="edit_type_debit{{ transaction.id }}" value="Debit"
-                                       {% if transaction.transaction_type == 'Debit' %}checked{% endif %}>
-                                <label class="btn btn-outline-danger" for="edit_type_debit{{ transaction.id }}">
+                                       id="edit_type_debit" value="Debit">
+                                <label class="btn btn-outline-danger" for="edit_type_debit">
                                     <i class="bi bi-arrow-down-circle"></i> Debit (Expense)
                                 </label>
                                 <input type="radio" class="btn-check" name="transaction_type"
-                                       id="edit_type_credit{{ transaction.id }}" value="Credit"
-                                       {% if transaction.transaction_type == 'Credit' %}checked{% endif %}>
-                                <label class="btn btn-outline-success" for="edit_type_credit{{ transaction.id }}">
+                                       id="edit_type_credit" value="Credit">
+                                <label class="btn btn-outline-success" for="edit_type_credit">
                                     <i class="bi bi-arrow-up-circle"></i> Credit (Income)
                                 </label>
                             </div>
@@ -335,10 +335,9 @@
 
                         <!-- Description -->
                         <div class="col-md-12">
-                            <label for="edit_description{{ transaction.id }}" class="form-label">Description</label>
-                            <input type="text" class="form-control" id="edit_description{{ transaction.id }}"
-                                   name="description" value="{{ transaction.description or '' }}"
-                                   placeholder="Add notes...">
+                            <label for="edit_description" class="form-label">Description</label>
+                            <input type="text" class="form-control" id="edit_description"
+                                   name="description" placeholder="Add notes...">
                         </div>
                     </div>
                 </div>
@@ -352,7 +351,6 @@
         </div>
     </div>
 </div>
-{% endfor %}
 
 {% endblock %}
 
@@ -471,8 +469,14 @@
                             $${transaction.running_balance.toFixed(2)}
                         </td>
                         <td class="text-center">
-                            <button type="button" class="btn btn-sm btn-outline-primary me-1"
-                                    data-bs-toggle="modal" data-bs-target="#editModal${transaction.id}">
+                            <button type="button" class="btn btn-sm btn-outline-primary me-1 edit-transaction-btn"
+                                    data-transaction-id="${transaction.id}"
+                                    data-date="${transaction.date}"
+                                    data-payee-id="${transaction.payee_id}"
+                                    data-category-id="${transaction.category_id}"
+                                    data-type="${transaction.type}"
+                                    data-amount="${transaction.amount}"
+                                    data-description="${transaction.description}">
                                 <i class="bi bi-pencil"></i>
                             </button>
                             <form method="POST" action="/transactions/${transaction.id}/delete"
@@ -490,6 +494,9 @@
 
                     // Attach reconcile checkbox event listener to the new row
                     attachReconcileListener(newRow.querySelector('.reconcile-checkbox'));
+
+                    // Setup edit button for the new row
+                    setupEditButtons();
                 }
 
                 // Clear form
@@ -538,5 +545,46 @@
     document.querySelectorAll('.reconcile-checkbox').forEach(checkbox => {
         attachReconcileListener(checkbox);
     });
+
+    // Handle edit transaction button clicks
+    function setupEditButtons() {
+        document.querySelectorAll('.edit-transaction-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const transactionId = this.getAttribute('data-transaction-id');
+                const date = this.getAttribute('data-date');
+                const payeeId = this.getAttribute('data-payee-id');
+                const categoryId = this.getAttribute('data-category-id');
+                const type = this.getAttribute('data-type');
+                const amount = this.getAttribute('data-amount');
+                const description = this.getAttribute('data-description');
+
+                // Populate modal fields
+                document.getElementById('edit_transaction_id').value = transactionId;
+                document.getElementById('edit_date').value = date;
+                document.getElementById('edit_payee').value = payeeId;
+                document.getElementById('edit_category').value = categoryId;
+                document.getElementById('edit_amount').value = amount;
+                document.getElementById('edit_description').value = description;
+
+                // Set transaction type radio button
+                if (type === 'Debit') {
+                    document.getElementById('edit_type_debit').checked = true;
+                } else {
+                    document.getElementById('edit_type_credit').checked = true;
+                }
+
+                // Update form action
+                const form = document.getElementById('editTransactionForm');
+                form.action = `/transactions/${transactionId}/edit`;
+
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('editTransactionModal'));
+                modal.show();
+            });
+        });
+    }
+
+    // Setup edit buttons for existing transactions
+    setupEditButtons();
 </script>
 {% endblock %}
