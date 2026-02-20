@@ -863,7 +863,6 @@ def edit_transaction(transaction_id):
 
     db.session.commit()
 
-    flash('Transaction updated successfully!', 'success')
     return redirect(url_for('account_transactions', account_id=account_id))
 
 @app.route('/transactions/<int:transaction_id>/toggle_reconciled', methods=['POST'])

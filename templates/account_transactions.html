@@ -498,37 +498,14 @@
                 document.getElementById('payee_id').value = '';
                 document.getElementById('category_id').value = '';
                 document.getElementById('type_debit').checked = true;
-
-                // Show success message
-                showFlashMessage('Transaction added successfully!', 'success');
             } else {
-                showFlashMessage(data.error || 'Error adding transaction', 'danger');
+                console.error('Error adding transaction:', data.error);
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showFlashMessage('Error adding transaction', 'danger');
         });
     });
-
-    // Function to show flash messages
-    function showFlashMessage(message, type) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-        alertDiv.setAttribute('role', 'alert');
-        alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        `;
-
-        const mainContent = document.querySelector('.main-content');
-        mainContent.insertBefore(alertDiv, mainContent.firstChild);
-
-        // Auto-dismiss after 3 seconds
-        setTimeout(() => {
-            alertDiv.remove();
-        }, 3000);
-    }
 
     // Function to attach reconcile listener
     function attachReconcileListener(checkbox) {
