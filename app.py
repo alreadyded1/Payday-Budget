@@ -465,6 +465,10 @@ def accounts():
 
     all_accounts = Account.query.filter_by(user_id=current_user.id).all()
 
+    # Add transaction count to each account
+    for account in all_accounts:
+        account.transaction_count = Transaction.query.filter_by(account_id=account.id).count()
+
     # Calculate total balances by type
     total_checking = sum(a.balance for a in all_accounts if a.account_type == 'Checking' and a.is_active)
     total_savings = sum(a.balance for a in all_accounts if a.account_type == 'Savings' and a.is_active)
@@ -499,15 +503,15 @@ def toggle_account_active(account_id):
 def delete_account(account_id):
     account = Account.query.filter_by(id=account_id, user_id=current_user.id).first_or_404()
 
-    # Check if account has transactions
+    # Delete all transactions associated with this account
     transaction_count = Transaction.query.filter_by(account_id=account_id).count()
     if transaction_count > 0:
-        flash(f'Cannot delete account with {transaction_count} transactions. Please delete transactions first.', 'danger')
-        return redirect(url_for('accounts'))
+        Transaction.query.filter_by(account_id=account_id).delete()
 
+    # Delete the account
     db.session.delete(account)
     db.session.commit()
-    flash('Account deleted successfully!', 'success')
+    flash(f'Account deleted successfully! ({transaction_count} transaction(s) removed)', 'success')
     return redirect(url_for('accounts'))
 
 @app.route('/account/<int:account_id>', methods=['GET', 'POST'])

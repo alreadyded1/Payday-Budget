@@ -81,7 +81,7 @@
                                 <td class="text-end">
                                     <form method="POST" action="{{ url_for('delete_account', account_id=account.id) }}" style="display: inline;">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this account?')">
+                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete account \'{{ account.name }}\'?{% if account.transaction_count > 0 %}\n\nThis will also permanently delete {{ account.transaction_count }} transaction(s) associated with this account.{% endif %}\n\nThis action cannot be undone.')">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
