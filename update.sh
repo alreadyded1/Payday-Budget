@@ -10,6 +10,15 @@ echo "  Payday Budget Update"
 echo "=========================================="
 echo ""
 
+# Pull latest changes from GitHub
+echo "Pulling latest changes from GitHub..."
+if git pull; then
+    echo "✓ Successfully pulled latest changes"
+else
+    echo "⚠️  Failed to pull from GitHub. Continuing with local updates..."
+fi
+echo ""
+
 # Check if virtual environment exists
 if [ ! -f "venv/bin/activate" ]; then
     echo "Error: Virtual environment not found."
