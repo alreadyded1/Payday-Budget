@@ -77,24 +77,18 @@
                                    value="{{ today }}" required>
                         </div>
 
-                        <!-- Payee -->
-                        <div class="col-md-2">
+                        <!-- Payee (typeahead: search existing or create new) -->
+                        <div class="col-md-4">
                             <label class="form-label">Payee</label>
-                            <select class="form-select" id="payee_id" name="payee_id">
-                                <option value="">Select payee...</option>
-                                {% for payee in payees %}
-                                <option value="{{ payee.id }}" data-category="{{ payee.default_category_id or '' }}">
-                                    {{ payee.name }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <!-- New Payee -->
-                        <div class="col-md-2">
-                            <label class="form-label">New Payee</label>
-                            <input type="text" class="form-control" id="new_payee_name" name="new_payee_name"
-                                   placeholder="Or enter new...">
+                            <div style="position: relative;">
+                                <input type="text" class="form-control" id="payee_input" autocomplete="off"
+                                       placeholder="Search or create payee...">
+                                <input type="hidden" id="payee_id" name="payee_id">
+                                <input type="hidden" id="new_payee_name" name="new_payee_name">
+                                <ul id="payee_dropdown" class="list-group"
+                                    style="display:none; position:absolute; z-index:1050; width:100%; max-height:220px; overflow-y:auto; box-shadow:0 4px 8px rgba(0,0,0,0.15); top:100%; left:0;">
+                                </ul>
+                            </div>
                         </div>
 
                         <!-- Category -->
@@ -356,27 +350,122 @@
 
 {% block extra_js %}
 <script>
-    // Auto-select category when payee is chosen
-    document.getElementById('payee_id').addEventListener('change', function() {
-        const selectedOption = this.options[this.selectedIndex];
-        const categoryId = selectedOption.getAttribute('data-category');
+    // Payee typeahead autocomplete
+    const payeeData = [
+        {% for payee in payees %}
+        { id: "{{ payee.id }}", name: {{ payee.name | tojson }}, categoryId: "{{ payee.default_category_id or '' }}" },
+        {% endfor %}
+    ];
 
-        // Clear new payee name if selecting from dropdown
-        if (this.value) {
-            document.getElementById('new_payee_name').value = '';
+    const payeeInput    = document.getElementById('payee_input');
+    const payeeIdHidden = document.getElementById('payee_id');
+    const newPayeeHidden = document.getElementById('new_payee_name');
+    const payeeDropdown = document.getElementById('payee_dropdown');
+    let activeIndex = -1;
+
+    function filterPayees(q) {
+        const lower = q.toLowerCase().trim();
+        if (!lower) return [];
+        return payeeData.filter(p => p.name.toLowerCase().includes(lower));
+    }
+
+    function escapeHtml(text) {
+        const d = document.createElement('div');
+        d.appendChild(document.createTextNode(text));
+        return d.innerHTML;
+    }
+
+    function renderDropdown(matches, query) {
+        payeeDropdown.innerHTML = '';
+        activeIndex = -1;
+
+        matches.forEach(p => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item list-group-item-action';
+            li.style.cursor = 'pointer';
+            li.textContent = p.name;
+            li.addEventListener('mousedown', e => { e.preventDefault(); selectExistingPayee(p); });
+            payeeDropdown.appendChild(li);
+        });
+
+        // Show "Create New Payee" when typed text has no exact match
+        const trimmed = query.trim();
+        const exactMatch = payeeData.some(p => p.name.toLowerCase() === trimmed.toLowerCase());
+        if (trimmed && !exactMatch) {
+            const li = document.createElement('li');
+            li.className = 'list-group-item list-group-item-action list-group-item-primary';
+            li.style.cursor = 'pointer';
+            li.innerHTML = `<i class="bi bi-plus-circle-fill me-1"></i>Create New Payee: <strong>${escapeHtml(trimmed)}</strong>`;
+            li.addEventListener('mousedown', e => { e.preventDefault(); createNewPayee(trimmed); });
+            payeeDropdown.appendChild(li);
         }
 
-        // Set category if payee has default category
-        if (categoryId) {
-            document.getElementById('category_id').value = categoryId;
+        payeeDropdown.style.display = payeeDropdown.children.length > 0 ? 'block' : 'none';
+    }
+
+    function selectExistingPayee(payee) {
+        payeeInput.value    = payee.name;
+        payeeIdHidden.value = payee.id;
+        newPayeeHidden.value = '';
+        payeeDropdown.style.display = 'none';
+        activeIndex = -1;
+        if (payee.categoryId) {
+            document.getElementById('category_id').value = payee.categoryId;
+        }
+    }
+
+    function createNewPayee(name) {
+        payeeInput.value    = name;
+        payeeIdHidden.value = '';
+        newPayeeHidden.value = name;
+        payeeDropdown.style.display = 'none';
+        activeIndex = -1;
+    }
+
+    function setActiveItem(index) {
+        payeeDropdown.querySelectorAll('li').forEach((li, i) => {
+            li.classList.toggle('active', i === index);
+        });
+    }
+
+    payeeInput.addEventListener('input', function() {
+        payeeIdHidden.value = '';
+        const q = this.value;
+        if (!q.trim()) {
+            newPayeeHidden.value = '';
+            payeeDropdown.style.display = 'none';
+            return;
+        }
+        newPayeeHidden.value = q.trim();
+        renderDropdown(filterPayees(q), q);
+    });
+
+    payeeInput.addEventListener('keydown', function(e) {
+        const items = payeeDropdown.querySelectorAll('li');
+        if (payeeDropdown.style.display === 'none' || !items.length) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeIndex = Math.min(activeIndex + 1, items.length - 1);
+            setActiveItem(activeIndex);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIndex = Math.max(activeIndex - 1, 0);
+            setActiveItem(activeIndex);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (activeIndex >= 0) items[activeIndex].dispatchEvent(new MouseEvent('mousedown'));
+        } else if (e.key === 'Escape') {
+            payeeDropdown.style.display = 'none';
+            activeIndex = -1;
         }
     });
 
-    // Clear payee dropdown when typing new payee name
-    document.getElementById('new_payee_name').addEventListener('input', function() {
-        if (this.value) {
-            document.getElementById('payee_id').value = '';
-        }
+    payeeInput.addEventListener('focus', function() {
+        if (this.value.trim()) renderDropdown(filterPayees(this.value), this.value);
+    });
+
+    payeeInput.addEventListener('blur', function() {
+        setTimeout(() => { payeeDropdown.style.display = 'none'; }, 150);
     });
 
     // Set today's date by default
@@ -502,7 +591,9 @@
                 // Clear form
                 document.getElementById('transactionForm').reset();
                 document.getElementById('transaction_date').value = today;
+                document.getElementById('payee_input').value = '';
                 document.getElementById('payee_id').value = '';
+                document.getElementById('new_payee_name').value = '';
                 document.getElementById('category_id').value = '';
                 document.getElementById('type_debit').checked = true;
             } else {
