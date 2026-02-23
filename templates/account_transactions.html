@@ -167,10 +167,9 @@
                                 <th class="text-center">R</th>
                                 <th class="text-center">Date</th>
                                 <th class="text-center">Payee</th>
-                                <th class="text-center">Category</th>
-                                <th class="text-center">Description</th>
-                                <th class="text-center">Debit</th>
-                                <th class="text-center">Credit</th>
+                                <th class="text-center d-none d-md-table-cell">Category</th>
+                                <th class="text-center d-none d-md-table-cell">Description</th>
+                                <th class="text-center">Amount</th>
                                 <th class="text-center">Balance</th>
                                 <th class="text-center"></th>
                             </tr>
@@ -183,25 +182,18 @@
                                            data-transaction-id="{{ transaction.id }}"
                                            {% if transaction.reconciled %}checked{% endif %}>
                                 </td>
-                                <td class="text-center">{{ transaction.transaction_date.strftime('%Y-%m-%d') }}</td>
+                                <td class="text-center text-nowrap">{{ transaction.transaction_date.strftime('%Y-%m-%d') }}</td>
                                 <td class="text-center">{{ transaction.payee.name }}</td>
-                                <td class="text-center">
+                                <td class="text-center d-none d-md-table-cell">
                                     <span class="badge bg-secondary">{{ transaction.category.name }}</span>
                                 </td>
-                                <td class="text-center">
+                                <td class="text-center d-none d-md-table-cell">
                                     <small class="text-muted">{{ transaction.description or '' }}</small>
                                 </td>
-                                <td class="text-center {% if transaction.transaction_type == 'Debit' %}text-danger{% endif %}">
-                                    {% if transaction.transaction_type == 'Debit' %}
-                                    ${{ "%.2f"|format(transaction.amount) }}
-                                    {% endif %}
+                                <td class="text-center text-nowrap {% if transaction.transaction_type == 'Debit' %}text-danger{% else %}text-success{% endif %}">
+                                    {% if transaction.transaction_type == 'Debit' %}-{% else %}+{% endif %}${{ "%.2f"|format(transaction.amount) }}
                                 </td>
-                                <td class="text-center {% if transaction.transaction_type == 'Credit' %}text-success{% endif %}">
-                                    {% if transaction.transaction_type == 'Credit' %}
-                                    ${{ "%.2f"|format(transaction.amount) }}
-                                    {% endif %}
-                                </td>
-                                <td class="text-center fw-bold text-dark">
+                                <td class="text-center text-nowrap fw-bold text-dark">
                                     ${{ "%.2f"|format(transaction.running_balance) }}
                                 </td>
                                 <td class="text-center">
@@ -240,10 +232,9 @@
                                 <th class="text-center">R</th>
                                 <th class="text-center">Date</th>
                                 <th class="text-center">Payee</th>
-                                <th class="text-center">Category</th>
-                                <th class="text-center">Description</th>
-                                <th class="text-center">Debit</th>
-                                <th class="text-center">Credit</th>
+                                <th class="text-center d-none d-md-table-cell">Category</th>
+                                <th class="text-center d-none d-md-table-cell">Description</th>
+                                <th class="text-center">Amount</th>
                                 <th class="text-center">Balance</th>
                                 <th class="text-center"></th>
                             </tr>
@@ -540,21 +531,18 @@
                             <input type="checkbox" class="form-check-input reconcile-checkbox"
                                    data-transaction-id="${transaction.id}">
                         </td>
-                        <td class="text-center">${transaction.date}</td>
+                        <td class="text-center text-nowrap">${transaction.date}</td>
                         <td class="text-center">${transaction.payee}</td>
-                        <td class="text-center">
+                        <td class="text-center d-none d-md-table-cell">
                             <span class="badge bg-secondary">${transaction.category}</span>
                         </td>
-                        <td class="text-center">
+                        <td class="text-center d-none d-md-table-cell">
                             <small class="text-muted">${transaction.description}</small>
                         </td>
-                        <td class="text-center ${transaction.type === 'Debit' ? 'text-danger' : ''}">
-                            ${transaction.type === 'Debit' ? '$' + transaction.amount.toFixed(2) : ''}
+                        <td class="text-center text-nowrap ${transaction.type === 'Debit' ? 'text-danger' : 'text-success'}">
+                            ${transaction.type === 'Debit' ? '-' : '+'}$${transaction.amount.toFixed(2)}
                         </td>
-                        <td class="text-center ${transaction.type === 'Credit' ? 'text-success' : ''}">
-                            ${transaction.type === 'Credit' ? '$' + transaction.amount.toFixed(2) : ''}
-                        </td>
-                        <td class="text-center fw-bold text-dark">
+                        <td class="text-center text-nowrap fw-bold text-dark">
                             $${transaction.running_balance.toFixed(2)}
                         </td>
                         <td class="text-center">
