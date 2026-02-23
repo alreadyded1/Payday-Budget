@@ -91,15 +91,17 @@
                             </div>
                         </div>
 
-                        <!-- Category -->
+                        <!-- Category (typeahead) -->
                         <div class="col-md-2">
-                            <label for="category_id" class="form-label">Category</label>
-                            <select class="form-select" id="category_id" name="category_id" required>
-                                <option value="">Select...</option>
-                                {% for category in categories %}
-                                <option value="{{ category.id }}">{{ category.name }}</option>
-                                {% endfor %}
-                            </select>
+                            <label class="form-label">Category</label>
+                            <div style="position: relative;">
+                                <input type="text" class="form-control" id="category_input" autocomplete="off"
+                                       placeholder="Search category...">
+                                <input type="hidden" id="category_id" name="category_id">
+                                <ul id="category_dropdown" class="list-group"
+                                    style="display:none; position:absolute; z-index:1050; width:100%; max-height:220px; overflow-y:auto; box-shadow:0 4px 8px rgba(0,0,0,0.15); top:100%; left:0;">
+                                </ul>
+                            </div>
                         </div>
 
                         <!-- Type -->
@@ -401,7 +403,9 @@
         payeeDropdown.style.display = 'none';
         activeIndex = -1;
         if (payee.categoryId) {
-            document.getElementById('category_id').value = payee.categoryId;
+            categoryIdHidden.value = payee.categoryId;
+            const cat = categoryData.find(c => c.id === payee.categoryId);
+            if (cat) categoryInput.value = cat.name;
         }
     }
 
@@ -457,6 +461,86 @@
 
     payeeInput.addEventListener('blur', function() {
         setTimeout(() => { payeeDropdown.style.display = 'none'; }, 150);
+    });
+
+    // Category typeahead autocomplete
+    const categoryData = [
+        {% for category in categories %}
+        { id: "{{ category.id }}", name: {{ category.name | tojson }} },
+        {% endfor %}
+    ];
+
+    const categoryInput    = document.getElementById('category_input');
+    const categoryIdHidden = document.getElementById('category_id');
+    const categoryDropdown = document.getElementById('category_dropdown');
+    let categoryActiveIndex = -1;
+
+    function filterCategories(q) {
+        const lower = q.toLowerCase().trim();
+        if (!lower) return [];
+        return categoryData.filter(c => c.name.toLowerCase().includes(lower));
+    }
+
+    function renderCategoryDropdown(matches) {
+        categoryDropdown.innerHTML = '';
+        categoryActiveIndex = -1;
+        matches.forEach(c => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item list-group-item-action';
+            li.style.cursor = 'pointer';
+            li.textContent = c.name;
+            li.addEventListener('mousedown', e => { e.preventDefault(); selectCategory(c); });
+            categoryDropdown.appendChild(li);
+        });
+        categoryDropdown.style.display = matches.length > 0 ? 'block' : 'none';
+    }
+
+    function selectCategory(cat) {
+        categoryInput.value    = cat.name;
+        categoryIdHidden.value = cat.id;
+        categoryDropdown.style.display = 'none';
+        categoryActiveIndex = -1;
+    }
+
+    function setCategoryActiveItem(index) {
+        categoryDropdown.querySelectorAll('li').forEach((li, i) => {
+            li.classList.toggle('active', i === index);
+        });
+    }
+
+    categoryInput.addEventListener('input', function() {
+        categoryIdHidden.value = '';
+        const q = this.value;
+        if (!q.trim()) { categoryDropdown.style.display = 'none'; return; }
+        renderCategoryDropdown(filterCategories(q));
+    });
+
+    categoryInput.addEventListener('keydown', function(e) {
+        const items = categoryDropdown.querySelectorAll('li');
+        if (categoryDropdown.style.display === 'none' || !items.length) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            categoryActiveIndex = Math.min(categoryActiveIndex + 1, items.length - 1);
+            setCategoryActiveItem(categoryActiveIndex);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            categoryActiveIndex = Math.max(categoryActiveIndex - 1, 0);
+            setCategoryActiveItem(categoryActiveIndex);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (categoryActiveIndex >= 0) items[categoryActiveIndex].dispatchEvent(new MouseEvent('mousedown'));
+        } else if (e.key === 'Escape') {
+            categoryDropdown.style.display = 'none';
+            categoryActiveIndex = -1;
+        }
+    });
+
+    categoryInput.addEventListener('focus', function() {
+        if (this.value.trim()) renderCategoryDropdown(filterCategories(this.value));
+    });
+
+    categoryInput.addEventListener('blur', function() {
+        setTimeout(() => { categoryDropdown.style.display = 'none'; }, 150);
     });
 
     // Set today's date by default
@@ -582,6 +666,7 @@
                 document.getElementById('payee_input').value = '';
                 document.getElementById('payee_id').value = '';
                 document.getElementById('new_payee_name').value = '';
+                document.getElementById('category_input').value = '';
                 document.getElementById('category_id').value = '';
                 document.getElementById('type_debit').checked = true;
             } else {
