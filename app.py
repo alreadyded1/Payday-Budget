@@ -498,6 +498,20 @@ def toggle_account_active(account_id):
     flash(f'Account status updated!', 'success')
     return redirect(url_for('accounts'))
 
+@app.route('/accounts/<int:account_id>/edit', methods=['POST'])
+@login_required
+def edit_account(account_id):
+    account = Account.query.filter_by(id=account_id, user_id=current_user.id).first_or_404()
+    account.name = request.form.get('name')
+    account.account_type = request.form.get('account_type')
+    new_opening = float(request.form.get('opening_balance') or account.opening_balance)
+    delta = new_opening - account.opening_balance
+    account.balance += delta
+    account.opening_balance = new_opening
+    db.session.commit()
+    flash('Account updated successfully!', 'success')
+    return redirect(url_for('accounts'))
+
 @app.route('/accounts/<int:account_id>/delete', methods=['POST'])
 @login_required
 def delete_account(account_id):
@@ -524,25 +538,46 @@ def account_transactions(account_id):
         return add_transaction_form(account_id)
 
     # GET request - show transactions page
-    # Get all transactions for this account
-    transactions = Transaction.query.filter_by(account_id=account_id)\
-        .order_by(Transaction.transaction_date.desc(), Transaction.id.desc())\
-        .all()
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
 
-    # Calculate running balance for each transaction
-    running_balance = account.opening_balance
+    pagination = Transaction.query\
+        .filter_by(account_id=account_id)\
+        .order_by(Transaction.transaction_date.desc(), Transaction.id.desc())\
+        .paginate(page=page, per_page=per_page, error_out=False)
+
+    transactions = pagination.items
     transactions_with_balance = []
 
-    # We need to process in chronological order to calculate balance
-    for transaction in reversed(transactions):
-        if transaction.transaction_type == 'Credit':
-            running_balance += transaction.amount
-        else:  # Debit
-            running_balance -= transaction.amount
+    if transactions:
+        oldest = transactions[-1]  # last item in DESC list = chronologically oldest on this page
 
-        # Add running balance to transaction object
-        transaction.running_balance = running_balance
-        transactions_with_balance.insert(0, transaction)
+        # Sum all transactions chronologically before the oldest on this page
+        pre_credits = db.session.query(func.sum(Transaction.amount))\
+            .filter(Transaction.account_id == account_id)\
+            .filter(
+                (Transaction.transaction_date < oldest.transaction_date) |
+                ((Transaction.transaction_date == oldest.transaction_date) &
+                 (Transaction.id < oldest.id))
+            ).filter(Transaction.transaction_type == 'Credit').scalar() or 0.0
+
+        pre_debits = db.session.query(func.sum(Transaction.amount))\
+            .filter(Transaction.account_id == account_id)\
+            .filter(
+                (Transaction.transaction_date < oldest.transaction_date) |
+                ((Transaction.transaction_date == oldest.transaction_date) &
+                 (Transaction.id < oldest.id))
+            ).filter(Transaction.transaction_type == 'Debit').scalar() or 0.0
+
+        running_balance = account.opening_balance + pre_credits - pre_debits
+
+        for transaction in reversed(transactions):
+            if transaction.transaction_type == 'Credit':
+                running_balance += transaction.amount
+            else:
+                running_balance -= transaction.amount
+            transaction.running_balance = running_balance
+            transactions_with_balance.insert(0, transaction)
 
     payees = Payee.query.filter_by(user_id=current_user.id).order_by(Payee.name).all()
     categories = Category.query.filter_by(user_id=current_user.id).all()
@@ -568,6 +603,7 @@ def account_transactions(account_id):
                          payees=payees,
                          categories=categories,
                          reconciled_balance=reconciled_balance,
+                         pagination=pagination,
                          today=date.today().isoformat())
 
 @app.route('/account/<int:account_id>/add_transaction', methods=['POST'])
@@ -980,6 +1016,19 @@ def delete_budget(budget_id):
     db.session.delete(budget)
     db.session.commit()
     flash('Budget deleted successfully!', 'success')
+    return redirect(url_for('budgets'))
+
+@app.route('/budgets/<int:budget_id>/edit', methods=['POST'])
+@login_required
+def edit_budget(budget_id):
+    budget = Budget.query.filter_by(id=budget_id, user_id=current_user.id).first_or_404()
+    budget.planned_amount = float(request.form.get('planned_amount'))
+    budget.recurrence_type = request.form.get('recurrence_type')
+    start_date_str = request.form.get('period_start_date')
+    if start_date_str:
+        budget.period_start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    db.session.commit()
+    flash('Budget updated successfully!', 'success')
     return redirect(url_for('budgets'))
 
 @app.route('/subscriptions', methods=['GET', 'POST'])
