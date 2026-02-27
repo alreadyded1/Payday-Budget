@@ -878,7 +878,26 @@ def toggle_reconciled(transaction_id):
     transaction = Transaction.query.filter_by(id=transaction_id, user_id=current_user.id).first_or_404()
     transaction.reconciled = not transaction.reconciled
     db.session.commit()
-    return jsonify({'success': True, 'reconciled': transaction.reconciled})
+
+    account = transaction.account
+    reconciled_debits = db.session.query(func.sum(Transaction.amount))\
+        .filter(Transaction.account_id == account.id)\
+        .filter(Transaction.reconciled == True)\
+        .filter(Transaction.transaction_type == 'Debit')\
+        .scalar() or 0.0
+    reconciled_credits = db.session.query(func.sum(Transaction.amount))\
+        .filter(Transaction.account_id == account.id)\
+        .filter(Transaction.reconciled == True)\
+        .filter(Transaction.transaction_type == 'Credit')\
+        .scalar() or 0.0
+    reconciled_balance = account.opening_balance + reconciled_credits - reconciled_debits
+
+    return jsonify({
+        'success': True,
+        'reconciled': transaction.reconciled,
+        'reconciled_balance': float(reconciled_balance),
+        'account_balance': float(account.balance)
+    })
 
 @app.route('/budgets', methods=['GET', 'POST'])
 @login_required
