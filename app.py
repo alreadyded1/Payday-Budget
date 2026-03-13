@@ -11,6 +11,7 @@ import os
 import secrets
 import csv
 import io
+from urllib.parse import urlencode
 
 # Load environment variables from .env file
 load_dotenv()
@@ -543,18 +544,51 @@ def account_transactions(account_id):
     page = request.args.get('page', 1, type=int)
     per_page = 50
 
-    pagination = Transaction.query\
-        .filter_by(account_id=account_id)\
+    # Filter params
+    search     = request.args.get('search', '').strip()
+    f_category = request.args.get('category_id', type=int)
+    f_type     = request.args.get('type', '')
+    f_start    = request.args.get('start_date', '')
+    f_end      = request.args.get('end_date', '')
+
+    has_filters = any([search, f_category, f_type, f_start, f_end])
+
+    base_query = Transaction.query.filter_by(account_id=account_id)
+
+    if search:
+        matching_payee_ids = db.session.query(Payee.id).filter(
+            Payee.name.ilike(f'%{search}%'),
+            Payee.user_id == current_user.id
+        )
+        base_query = base_query.filter(db.or_(
+            Transaction.payee_id.in_(matching_payee_ids),
+            Transaction.description.ilike(f'%{search}%')
+        ))
+    if f_category:
+        base_query = base_query.filter(Transaction.category_id == f_category)
+    if f_type in ('Debit', 'Credit'):
+        base_query = base_query.filter(Transaction.transaction_type == f_type)
+    if f_start:
+        try:
+            base_query = base_query.filter(Transaction.transaction_date >= datetime.strptime(f_start, '%Y-%m-%d').date())
+        except ValueError:
+            pass
+    if f_end:
+        try:
+            base_query = base_query.filter(Transaction.transaction_date <= datetime.strptime(f_end, '%Y-%m-%d').date())
+        except ValueError:
+            pass
+
+    pagination = base_query\
         .order_by(Transaction.transaction_date.desc(), Transaction.id.desc())\
         .paginate(page=page, per_page=per_page, error_out=False)
 
     transactions = pagination.items
     transactions_with_balance = []
 
-    if transactions:
-        oldest = transactions[-1]  # last item in DESC list = chronologically oldest on this page
+    if transactions and not has_filters:
+        oldest = transactions[-1]
 
-        # Sum all transactions chronologically before the oldest on this page
         pre_credits = db.session.query(func.sum(Transaction.amount))\
             .filter(Transaction.account_id == account_id)\
             .filter(
@@ -580,6 +614,10 @@ def account_transactions(account_id):
                 running_balance -= transaction.amount
             transaction.running_balance = running_balance
             transactions_with_balance.insert(0, transaction)
+    else:
+        for transaction in transactions:
+            transaction.running_balance = None
+        transactions_with_balance = transactions
 
     payees = Payee.query.filter_by(user_id=current_user.id).order_by(Payee.name).all()
     categories = Category.query.filter_by(user_id=current_user.id).all()
@@ -599,6 +637,10 @@ def account_transactions(account_id):
 
     reconciled_balance = account.opening_balance + reconciled_credits - reconciled_debits
 
+    filters = dict(search=search, category_id=f_category or '', type=f_type,
+                   start_date=f_start, end_date=f_end)
+    filter_qs = urlencode({k: v for k, v in filters.items() if v})
+
     return render_template('account_transactions.html',
                          account=account,
                          transactions=transactions_with_balance,
@@ -606,6 +648,9 @@ def account_transactions(account_id):
                          categories=categories,
                          reconciled_balance=reconciled_balance,
                          pagination=pagination,
+                         filters=filters,
+                         has_filters=has_filters,
+                         filter_qs=filter_qs,
                          today=date.today().isoformat())
 
 @app.route('/account/<int:account_id>/add_transaction', methods=['POST'])
@@ -826,21 +871,59 @@ def delete_payee(payee_id):
 @app.route('/transactions', methods=['GET', 'POST'])
 @login_required
 def transactions():
-    # Get all user's accounts, payees, and categories
     accounts = Account.query.filter_by(user_id=current_user.id).all()
     payees = Payee.query.filter_by(user_id=current_user.id).order_by(Payee.name).all()
     categories = Category.query.filter_by(user_id=current_user.id).order_by(Category.name).all()
 
-    # Get all transactions across all accounts, ordered by date (most recent first)
-    transactions = Transaction.query.filter_by(user_id=current_user.id)\
-        .order_by(Transaction.transaction_date.desc(), Transaction.id.desc())\
-        .all()
+    # Filter params
+    search       = request.args.get('search', '').strip()
+    f_account    = request.args.get('account_id', type=int)
+    f_category   = request.args.get('category_id', type=int)
+    f_type       = request.args.get('type', '')
+    f_start      = request.args.get('start_date', '')
+    f_end        = request.args.get('end_date', '')
+
+    query = Transaction.query.filter_by(user_id=current_user.id)
+
+    if search:
+        matching_payee_ids = db.session.query(Payee.id).filter(
+            Payee.name.ilike(f'%{search}%'),
+            Payee.user_id == current_user.id
+        )
+        query = query.filter(db.or_(
+            Transaction.payee_id.in_(matching_payee_ids),
+            Transaction.description.ilike(f'%{search}%')
+        ))
+    if f_account:
+        query = query.filter(Transaction.account_id == f_account)
+    if f_category:
+        query = query.filter(Transaction.category_id == f_category)
+    if f_type in ('Debit', 'Credit'):
+        query = query.filter(Transaction.transaction_type == f_type)
+    if f_start:
+        try:
+            query = query.filter(Transaction.transaction_date >= datetime.strptime(f_start, '%Y-%m-%d').date())
+        except ValueError:
+            pass
+    if f_end:
+        try:
+            query = query.filter(Transaction.transaction_date <= datetime.strptime(f_end, '%Y-%m-%d').date())
+        except ValueError:
+            pass
+
+    transactions = query.order_by(Transaction.transaction_date.desc(), Transaction.id.desc()).all()
+
+    filters = dict(search=search, account_id=f_account or '', category_id=f_category or '',
+                   type=f_type, start_date=f_start, end_date=f_end)
+    has_filters = any(str(v) for v in filters.values() if v)
 
     return render_template('transactions.html',
                          accounts=accounts,
                          payees=payees,
                          categories=categories,
                          transactions=transactions,
+                         filters=filters,
+                         has_filters=has_filters,
                          now=date.today().isoformat())
 
 @app.route('/transactions/<int:transaction_id>/delete', methods=['POST'])

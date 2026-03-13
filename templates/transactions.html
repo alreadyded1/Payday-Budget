@@ -46,8 +46,73 @@
 
 <div class="row">
     <div class="col-md-8">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="mb-0">Transaction History</h5>
+        <!-- Filter Bar -->
+        <form method="GET" action="{{ url_for('transactions') }}" class="mb-3">
+            <div class="card">
+                <div class="card-body py-2">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-3">
+                            <input type="text" class="form-control form-control-sm" name="search"
+                                   placeholder="Search payee or notes…" value="{{ filters.search }}">
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select form-select-sm" name="account_id">
+                                <option value="">All Accounts</option>
+                                {% for account in accounts %}
+                                <option value="{{ account.id }}" {% if filters.account_id == account.id %}selected{% endif %}>
+                                    {{ account.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select form-select-sm" name="category_id">
+                                <option value="">All Categories</option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}" {% if filters.category_id == category.id %}selected{% endif %}>
+                                    {{ category.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-1">
+                            <select class="form-select form-select-sm" name="type">
+                                <option value="">Any</option>
+                                <option value="Debit" {% if filters.type == 'Debit' %}selected{% endif %}>Debit</option>
+                                <option value="Credit" {% if filters.type == 'Credit' %}selected{% endif %}>Credit</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="date" class="form-control form-control-sm" name="start_date"
+                                   value="{{ filters.start_date }}" title="From date">
+                        </div>
+                        <div class="col-md-2">
+                            <input type="date" class="form-control form-control-sm" name="end_date"
+                                   value="{{ filters.end_date }}" title="To date">
+                        </div>
+                        <div class="col-auto d-flex gap-1">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-funnel"></i>
+                            </button>
+                            {% if has_filters %}
+                            <a href="{{ url_for('transactions') }}" class="btn btn-outline-secondary btn-sm" title="Clear filters">
+                                <i class="bi bi-x-lg"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted small">
+                {% if has_filters %}
+                    <strong>{{ transactions|length }}</strong> result{{ 's' if transactions|length != 1 }} matching filters
+                {% else %}
+                    {{ transactions|length }} transaction{{ 's' if transactions|length != 1 }}
+                {% endif %}
+            </span>
             <button type="button" class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#exportModal">
                 <i class="bi bi-download"></i> Export CSV
             </button>

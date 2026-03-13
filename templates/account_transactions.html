@@ -189,14 +189,65 @@
 <div class="row">
     <div class="col-12">
         <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="bi bi-list-ul"></i> Transaction History</h5>
-                <div class="d-flex align-items-center gap-2">
-                    <span class="badge bg-primary">Showing {{ (pagination.page - 1) * pagination.per_page + 1 }}–{{ [pagination.page * pagination.per_page, pagination.total]|min }} of {{ pagination.total }}</span>
-                    <button type="button" class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#exportModal">
-                        <i class="bi bi-download"></i> Export CSV
-                    </button>
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0"><i class="bi bi-list-ul"></i> Transaction History</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-primary">
+                            {% if pagination.total > 0 %}
+                            Showing {{ (pagination.page - 1) * pagination.per_page + 1 }}–{{ [pagination.page * pagination.per_page, pagination.total]|min }} of {{ pagination.total }}
+                            {% else %}0{% endif %}
+                        </span>
+                        <button type="button" class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#exportModal">
+                            <i class="bi bi-download"></i> Export CSV
+                        </button>
+                    </div>
                 </div>
+                <!-- Filter Bar -->
+                <form method="GET" action="{{ url_for('account_transactions', account_id=account.id) }}">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-4">
+                            <input type="text" class="form-control form-control-sm" name="search"
+                                   placeholder="Search payee or notes…" value="{{ filters.search }}">
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm" name="category_id">
+                                <option value="">All Categories</option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}" {% if filters.category_id == category.id %}selected{% endif %}>
+                                    {{ category.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select form-select-sm" name="type">
+                                <option value="">Any Type</option>
+                                <option value="Debit" {% if filters.type == 'Debit' %}selected{% endif %}>Debit</option>
+                                <option value="Credit" {% if filters.type == 'Credit' %}selected{% endif %}>Credit</option>
+                            </select>
+                        </div>
+                        <div class="col-md-1">
+                            <input type="date" class="form-control form-control-sm" name="start_date"
+                                   value="{{ filters.start_date }}" title="From date">
+                        </div>
+                        <div class="col-md-1">
+                            <input type="date" class="form-control form-control-sm" name="end_date"
+                                   value="{{ filters.end_date }}" title="To date">
+                        </div>
+                        <div class="col-auto d-flex gap-1">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-funnel"></i>
+                            </button>
+                            {% if has_filters %}
+                            <a href="{{ url_for('account_transactions', account_id=account.id) }}"
+                               class="btn btn-outline-secondary btn-sm" title="Clear filters">
+                                <i class="bi bi-x-lg"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
             </div>
             <div class="card-body">
                 {% if transactions %}
@@ -210,7 +261,7 @@
                                 <th class="text-center d-none d-md-table-cell">Category</th>
                                 <th class="text-center d-none d-md-table-cell">Description</th>
                                 <th class="text-center">Amount</th>
-                                <th class="text-center">Balance</th>
+                                {% if not has_filters %}<th class="text-center">Balance</th>{% endif %}
                                 <th class="text-center"></th>
                             </tr>
                         </thead>
@@ -233,9 +284,11 @@
                                 <td class="text-center text-nowrap {% if transaction.transaction_type == 'Debit' %}text-danger{% else %}text-success{% endif %}">
                                     {% if transaction.transaction_type == 'Debit' %}-{% else %}+{% endif %}${{ "%.2f"|format(transaction.amount) }}
                                 </td>
+                                {% if not has_filters %}
                                 <td class="text-center text-nowrap fw-bold text-dark">
                                     ${{ "%.2f"|format(transaction.running_balance) }}
                                 </td>
+                                {% endif %}
                                 <td class="text-center">
                                     <button type="button" class="btn btn-sm btn-outline-primary me-1 edit-transaction-btn"
                                             data-transaction-id="{{ transaction.id }}"
@@ -264,23 +317,31 @@
                 <nav class="mt-3">
                     <ul class="pagination justify-content-center">
                         <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-                            <a class="page-link" href="?page={{ pagination.prev_num }}">&laquo;</a>
+                            <a class="page-link" href="?page={{ pagination.prev_num }}{% if filter_qs %}&{{ filter_qs }}{% endif %}">&laquo;</a>
                         </li>
                         {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                             {% if p %}
                                 <li class="page-item {% if p == pagination.page %}active{% endif %}">
-                                    <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+                                    <a class="page-link" href="?page={{ p }}{% if filter_qs %}&{{ filter_qs }}{% endif %}">{{ p }}</a>
                                 </li>
                             {% else %}
                                 <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
                             {% endif %}
                         {% endfor %}
                         <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-                            <a class="page-link" href="?page={{ pagination.next_num }}">&raquo;</a>
+                            <a class="page-link" href="?page={{ pagination.next_num }}{% if filter_qs %}&{{ filter_qs }}{% endif %}">&raquo;</a>
                         </li>
                     </ul>
                 </nav>
                 {% endif %}
+                {% elif has_filters %}
+                <div class="text-center py-5">
+                    <i class="bi bi-search" style="font-size: 3rem; color: #ccc;"></i>
+                    <p class="text-muted mt-3">No transactions match your filters.</p>
+                    <a href="{{ url_for('account_transactions', account_id=account.id) }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-x-lg"></i> Clear Filters
+                    </a>
+                </div>
                 {% else %}
                 <div class="text-center py-5" id="emptyState">
                     <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
