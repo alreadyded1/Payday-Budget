@@ -220,18 +220,18 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-md-1">
+                        <div class="col-md-2">
                             <select class="form-select form-select-sm" name="type">
-                                <option value="">Any</option>
+                                <option value="">Any Type</option>
                                 <option value="Debit" {% if filters.type == 'Debit' %}selected{% endif %}>Debit</option>
                                 <option value="Credit" {% if filters.type == 'Credit' %}selected{% endif %}>Credit</option>
                             </select>
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <input type="date" class="form-control form-control-sm" name="start_date"
                                    value="{{ filters.start_date }}" title="From date">
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <input type="date" class="form-control form-control-sm" name="end_date"
                                    value="{{ filters.end_date }}" title="To date">
                         </div>
