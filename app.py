@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, Response
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
@@ -9,6 +9,8 @@ from sqlalchemy import func, extract, case
 from dotenv import load_dotenv
 import os
 import secrets
+import csv
+import io
 
 # Load environment variables from .env file
 load_dotenv()
@@ -1243,6 +1245,64 @@ def reports():
                          monthly_spending=monthly_spending,
                          current_period=period,
                          period_label=period_label)
+
+@app.route('/export/transactions')
+@login_required
+def export_transactions():
+    account_id = request.args.get('account_id', type=int)
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    query = Transaction.query.filter_by(user_id=current_user.id)
+
+    if account_id:
+        account = Account.query.filter_by(id=account_id, user_id=current_user.id).first_or_404()
+        query = query.filter_by(account_id=account_id)
+
+    if start_date:
+        try:
+            query = query.filter(Transaction.transaction_date >= datetime.strptime(start_date, '%Y-%m-%d').date())
+        except ValueError:
+            pass
+
+    if end_date:
+        try:
+            query = query.filter(Transaction.transaction_date <= datetime.strptime(end_date, '%Y-%m-%d').date())
+        except ValueError:
+            pass
+
+    transactions = query.order_by(Transaction.transaction_date.desc(), Transaction.id.desc()).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Date', 'Account', 'Payee', 'Category', 'Type', 'Amount', 'Description', 'Reconciled'])
+    for t in transactions:
+        writer.writerow([
+            t.transaction_date.strftime('%Y-%m-%d'),
+            t.account.name,
+            t.payee.name,
+            t.category.name,
+            t.transaction_type,
+            f"{t.amount:.2f}",
+            t.description or '',
+            'Yes' if t.reconciled else 'No',
+        ])
+
+    parts = ['transactions']
+    if account_id:
+        parts.append(account.name.replace(' ', '_'))
+    if start_date:
+        parts.append(start_date)
+    if end_date:
+        parts.append(end_date)
+    filename = '_'.join(parts) + '.csv'
+
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+    )
+
 
 @app.route('/admin', methods=['GET', 'POST'])
 @login_required
