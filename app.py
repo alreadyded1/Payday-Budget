@@ -868,6 +868,25 @@ def delete_payee(payee_id):
     flash('Payee deleted successfully!', 'success')
     return redirect(url_for('payees'))
 
+@app.route('/payees/<int:payee_id>/merge', methods=['POST'])
+@login_required
+def merge_payee(payee_id):
+    source = Payee.query.filter_by(id=payee_id, user_id=current_user.id).first_or_404()
+    target_id = request.form.get('target_payee_id')
+
+    if not target_id or int(target_id) == payee_id:
+        flash('Please select a different payee to merge into.', 'danger')
+        return redirect(url_for('payees'))
+
+    target = Payee.query.filter_by(id=int(target_id), user_id=current_user.id).first_or_404()
+
+    Transaction.query.filter_by(payee_id=source.id, user_id=current_user.id).update({'payee_id': target.id})
+    db.session.delete(source)
+    db.session.commit()
+
+    flash(f'Merged "{source.name}" into "{target.name}" successfully.', 'success')
+    return redirect(url_for('payees'))
+
 @app.route('/transactions', methods=['GET', 'POST'])
 @login_required
 def transactions():
